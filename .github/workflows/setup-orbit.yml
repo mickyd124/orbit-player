@@ -49,18 +49,24 @@ jobs:
           const base = 'https://github.com/'+process.env.GITHUB_REPOSITORY;
           const assets = base+'/releases/download/v'+app.version;
           const sha = createHash('sha256').update(fs.readFileSync('dist/'+filename)).digest('hex');
+          const description = 'Media player for LG webOS: HTTP(S), HLS and DASH. Conversion and BitTorrent require a computer companion.';
+          const iconUrl = 'https://raw.githubusercontent.com/'+process.env.GITHUB_REPOSITORY+'/main/app/icon.png';
           const manifest = {
             id:app.id, title:app.title, version:app.version, type:app.type,
-            rootRequired:false, sourceUrl:base, iconUri:assets+'/icon.png',
-            ipkUrl:assets+'/'+filename, ipkHash:{sha256:sha}
+            appDescription:description, rootRequired:false, sourceUrl:base,
+            iconUri:iconUrl, ipkUrl:assets+'/'+filename,
+            ipkSize:fs.statSync('dist/'+filename).size, ipkHash:{sha256:sha}
           };
-          const feed = {packages:[{
-            id:app.id, title:app.title, iconUri:manifest.iconUri,
-            shortDescription:'HTTP/HLS/DASH player; BitTorrent and conversion require the computer companion.',
-            manifest
-          }]};
-          fs.writeFileSync('apps.json', JSON.stringify(feed,null,2)+'\n');
-          fs.writeFileSync('dist/apps.json', JSON.stringify(feed,null,2)+'\n');
+          const feed = {
+            paging:{page:1,count:1,maxPage:1,itemsTotal:1},
+            packages:[{
+              id:app.id, title:app.title, iconUri:iconUrl,
+              shortDescription:description, pool:'main', manifest
+            }]
+          };
+          for (const target of ['apps.json','repo.json','dist/apps.json','dist/repo.json']) {
+            fs.writeFileSync(target, JSON.stringify(feed,null,2)+'\n');
+          }
           fs.copyFileSync('app/icon.png','dist/icon.png');
           fs.writeFileSync('dist/SHA256SUMS',sha+'  '+filename+'\n');
           const feedUrl = 'https://raw.githubusercontent.com/'+process.env.GITHUB_REPOSITORY+'/main/apps.json';
