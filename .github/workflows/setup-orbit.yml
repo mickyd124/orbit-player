@@ -1,0 +1,94 @@
+name: Build and publish Orbit Player
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/setup-orbit.yml
+permissions:
+  contents: write
+concurrency:
+  group: orbit-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore supplied Orbit Player source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f app/appinfo.json ]; then
+            cat .bootstrap/part*.b64 | base64 --decode > /tmp/orbit-src.br
+            echo 'bdd862835bf1a58ca493f0dc29ae03fd0a8c7256c12c38784ee0c90df7d88887  /tmp/orbit-src.br' | sha256sum -c -
+            node -e "const fs=require('node:fs');const zlib=require('node:zlib');fs.writeFileSync('/tmp/orbit-src.tar',zlib.brotliDecompressSync(fs.readFileSync('/tmp/orbit-src.br')))"
+            tar -xf /tmp/orbit-src.tar -C .
+            rm -rf .bootstrap
+          fi
+      - name: Install dependencies, test, and package for LG webOS
+        run: |
+          npm install --save-dev --save-exact @webos-tools/cli@3.2.6
+          npm test
+          node --check app/app.js
+          node --check server/index.js
+          npm run vendor
+          cp node_modules/hls.js/LICENSE app/vendor/hls.LICENSE.txt
+          cp node_modules/dashjs/LICENSE.md app/vendor/dash.LICENSE.txt
+          npx ares-package app -o dist
+      - name: Generate Homebrew Channel repository feed and checksums
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const app = JSON.parse(fs.readFileSync('app/appinfo.json', 'utf8'));
+          const filename = app.id+'_'+app.version+'_all.ipk';
+          const base = 'https://github.com/'+process.env.GITHUB_REPOSITORY;
+          const assets = base+'/releases/download/v'+app.version;
+          const sha = createHash('sha256').update(fs.readFileSync('dist/'+filename)).digest('hex');
+          const manifest = {
+            id:app.id, title:app.title, version:app.version, type:app.type,
+            rootRequired:false, sourceUrl:base, iconUri:assets+'/icon.png',
+            ipkUrl:assets+'/'+filename, ipkHash:{sha256:sha}
+          };
+          const feed = {packages:[{
+            id:app.id, title:app.title, iconUri:manifest.iconUri,
+            shortDescription:'HTTP/HLS/DASH player; BitTorrent and conversion require the computer companion.',
+            manifest
+          }]};
+          fs.writeFileSync('apps.json', JSON.stringify(feed,null,2)+'\n');
+          fs.writeFileSync('dist/apps.json', JSON.stringify(feed,null,2)+'\n');
+          fs.copyFileSync('app/icon.png','dist/icon.png');
+          fs.writeFileSync('dist/SHA256SUMS',sha+'  '+filename+'\n');
+          const feedUrl = 'https://raw.githubusercontent.com/'+process.env.GITHUB_REPOSITORY+'/main/apps.json';
+          const readme = fs.readFileSync('README.md','utf8');
+          if (!readme.includes(feedUrl)) {
+            fs.writeFileSync('README.md',readme+'\n\n## Homebrew Channel installation\n\nIn Homebrew Channel, open Settings → Add repository and enter:\n\n'+feedUrl+'\n\nThe webOS TV app requires an optional computer companion for conversion and BitTorrent playback. Physical TV testing remains outstanding.\n');
+          }
+          JS
+      - name: Commit source, lockfile, and feed
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet || git commit -m 'Import Orbit Player project and Homebrew feed'
+          git push origin HEAD:main
+      - name: Publish or update v1.0.0 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./app/appinfo.json').version")
+          tag="v$version"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/*.ipk dist/apps.json dist/icon.png dist/SHA256SUMS --clobber
+          else
+            gh release create "$tag" dist/*.ipk dist/apps.json dist/icon.png dist/SHA256SUMS --target "$(git rev-parse HEAD)" --title "Orbit Player $version" --notes "LG webOS app. HLS/DASH playback and optional computer companion. Physical TV testing outstanding. Homebrew repository: https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/apps.json"
+          fi
+      - name: Save webOS installer as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-player-webos-ipk
+          path: dist/*.ipk
