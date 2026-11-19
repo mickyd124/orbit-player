@@ -1,21 +1,30 @@
 {
+  "paging": {
+    "page": 1,
+    "count": 1,
+    "maxPage": 1,
+    "itemsTotal": 1
+  },
   "packages": [
     {
       "id": "com.orbit.mediaplayer",
       "title": "Orbit Player",
-      "iconUri": "https://github.com/mickyd124/orbit-player/releases/download/v1.0.0/icon.png",
-      "shortDescription": "HTTP/HLS/DASH player; BitTorrent and conversion require the computer companion.",
+      "iconUri": "https://raw.githubusercontent.com/mickyd124/orbit-player/main/app/icon.png",
+      "shortDescription": "Media player for LG webOS: HTTP(S), HLS and DASH. Conversion and BitTorrent require a computer companion.",
+      "pool": "main",
       "manifest": {
         "id": "com.orbit.mediaplayer",
         "title": "Orbit Player",
         "version": "1.0.0",
         "type": "web",
+        "appDescription": "Media player for LG webOS: HTTP(S), HLS and DASH. Conversion and BitTorrent require a computer companion.",
         "rootRequired": false,
         "sourceUrl": "https://github.com/mickyd124/orbit-player",
-        "iconUri": "https://github.com/mickyd124/orbit-player/releases/download/v1.0.0/icon.png",
+        "iconUri": "https://raw.githubusercontent.com/mickyd124/orbit-player/main/app/icon.png",
         "ipkUrl": "https://github.com/mickyd124/orbit-player/releases/download/v1.0.0/com.orbit.mediaplayer_1.0.0_all.ipk",
+        "ipkSize": 424168,
         "ipkHash": {
-          "sha256": "b17e5f347611dc32ef0f8dadd2d284614f7e278c9a1714d9160bf8ed6b1af9f5"
+          "sha256": "b4b01251853db005aeb2751c9a66b86b52ae3a0632cef335e14f94eeaf3466b8"
         }
       }
     }
