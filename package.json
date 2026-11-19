@@ -1,0 +1,21 @@
+{
+  "name": "orbit-webos-player",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "vendor": "node scripts/vendor.js",
+    "test": "node --test test/policy.test.js",
+    "package:webos": "npm run vendor && ares-package app -o dist"
+  },
+  "dependencies": {
+    "dashjs": "^4.7.4",
+    "express": "^5.1.0",
+    "hls.js": "^1.6.0",
+    "webtorrent": "^2.8.0"
+  },
+  "devDependencies": {
+    "@webos-tools/cli": "3.2.6"
+  }
+}

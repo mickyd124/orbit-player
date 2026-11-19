@@ -1,0 +1,23 @@
+{
+  "packages": [
+    {
+      "id": "com.orbit.mediaplayer",
+      "title": "Orbit Player",
+      "iconUri": "https://github.com/mickyd124/orbit-player/releases/download/v1.0.0/icon.png",
+      "shortDescription": "HTTP/HLS/DASH player; BitTorrent and conversion require the computer companion.",
+      "manifest": {
+        "id": "com.orbit.mediaplayer",
+        "title": "Orbit Player",
+        "version": "1.0.0",
+        "type": "web",
+        "rootRequired": false,
+        "sourceUrl": "https://github.com/mickyd124/orbit-player",
+        "iconUri": "https://github.com/mickyd124/orbit-player/releases/download/v1.0.0/icon.png",
+        "ipkUrl": "https://github.com/mickyd124/orbit-player/releases/download/v1.0.0/com.orbit.mediaplayer_1.0.0_all.ipk",
+        "ipkHash": {
+          "sha256": "b17e5f347611dc32ef0f8dadd2d284614f7e278c9a1714d9160bf8ed6b1af9f5"
+        }
+      }
+    }
+  ]
+}

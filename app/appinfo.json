@@ -1,0 +1,13 @@
+{
+  "id": "com.orbit.mediaplayer",
+  "version": "1.0.0",
+  "vendor": "Orbit",
+  "type": "web",
+  "main": "index.html",
+  "title": "Orbit Player",
+  "icon": "icon.png",
+  "largeIcon": "icon.png",
+  "bgColor": "#0b1017",
+  "resolution": "1920x1080",
+  "requiredACG": []
+}
