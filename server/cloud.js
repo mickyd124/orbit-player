@@ -243,7 +243,7 @@ export default function createCloud(token,port,root){
   }
   api.post('/play/:id',async(req,res,next)=>{try{
     await load();const a=account(req.params.id),id=String(req.body?.id||''),name=String(req.body?.name||'');
-    if(!id||id.length>2048||!video(name,''))throw bad(400,'Select a supported video file.');
+    if(!id||id.length>2048||!name||name.length>255)throw bad(400,'Select a named cloud file.');
     if(a.type==='webdav')davUrl(a,id);
     const t=ticket({account:a.id,id,name:name.slice(0,255),exp:Date.now()+4*3600000});
     res.json({playback:'/cloud/stream?t='+encodeURIComponent(t)});
