@@ -103,7 +103,7 @@ export async function streamTeraBox(a,id,range,refresh){
   const url=new URL(link);
   safeTeraBoxDomain(url.host);
   url.searchParams.set('access_tokens',a.access_token);
-  const response=await fetch(url,{signal:AbortSignal.timeout(120000),headers:range?{Range:range}:{},redirect:'follow'});
+  const response=await fetch(url,{signal:null,headers:range?{Range:range}:{},redirect:'follow'});
   if(!response.ok&&response.status!==206)throw httpError(502,'TeraBox download returned HTTP '+response.status);
   return response;
 }
@@ -154,7 +154,11 @@ export async function streamMega(a,id,range,res){
     else start=Math.max(0,size-Number(match[2]));
     if(start>=size||start>end)throw httpError(416,'Byte range is outside the file.');
   }
-  res.status(range?206:200).set({'Content-Type':'application/octet-stream',
+  const extension=String(file.name||'').split('.').pop().toLowerCase();
+  const mime={mp4:'video/mp4',m4v:'video/mp4',mov:'video/quicktime',webm:'video/webm',
+    mkv:'video/x-matroska',avi:'video/x-msvideo',ts:'video/mp2t',m2ts:'video/mp2t',
+    mpeg:'video/mpeg',mpg:'video/mpeg',ogv:'video/ogg'}[extension]||'application/octet-stream';
+  res.status(range?206:200).set({'Content-Type':mime,
     'Accept-Ranges':'bytes','Content-Length':String(end-start+1),'Cache-Control':'no-store'});
   if(range)res.set('Content-Range',`bytes ${start}-${end}/${size}`);
   if(size===0)return res.end();
