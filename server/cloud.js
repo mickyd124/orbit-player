@@ -3,6 +3,7 @@ import {randomBytes,createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {readFile,writeFile,mkdir,rename,chmod} from 'node:fs/promises';
 import {Readable} from 'node:stream';
 import path from 'node:path';
+import {verifyMega,disconnectMega,browseMega,streamMega,startTeraBox,pollTeraBox,refreshTeraBox,browseTeraBox,streamTeraBox} from './cloud-extra.js';
 
 const VIDEO=/\.(mp4|m4v|mkv|mov|avi|webm|ts|m2ts|wmv|flv|mpg|mpeg|ogv|3gp|3gpp)$/i;
 const msBase='https://login.microsoftonline.com/consumers/oauth2/v2.0/';
@@ -72,7 +73,8 @@ export default function createCloud(token,port,root){
   function account(id){const a=accounts.find(x=>x.id===id);if(!a)throw bad(404,'Cloud account not found.');return a;}
   async function add(a){await load();a.id=random();accounts.push(a);await persist();return publicAccount(a);}
   async function refresh(a){
-    if(a.type==='webdav')return null;
+    if(a.type==='webdav'||a.type==='mega')return null;
+    if(a.type==='terabox')return refreshTeraBox(a,persist);
     if(a.expires>Date.now()+90000)return a.access_token;
     if(!a.refresh_token)throw bad(401,'Reconnect this cloud account: refresh token unavailable.');
     const endpoint=a.type==='google'?'https://oauth2.googleapis.com/token':a.type==='onedrive'?msBase+'token':'https://api.dropboxapi.com/oauth2/token';
@@ -92,7 +94,7 @@ export default function createCloud(token,port,root){
   async function finish(p,tokens){
     if(!tokens.access_token)throw bad(502,'Cloud provider did not return an access token.');
     const access=tokens.access_token;
-    let label=p.type==='google'?'Google Drive':p.type==='onedrive'?'OneDrive':'Dropbox';
+    let label=p.type==='google'?'Google Drive':p.type==='onedrive'?'OneDrive':p.type==='terabox'?'TeraBox':'Dropbox';
     try{
       if(p.type==='google'){const x=await json('https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)',{headers:{Authorization:'Bearer '+access}});label=x.user?.displayName||x.user?.emailAddress||label;}
       if(p.type==='onedrive'){const x=await json('https://graph.microsoft.com/v1.0/me?$select=displayName,userPrincipalName',{headers:{Authorization:'Bearer '+access}});label=x.displayName||x.userPrincipalName||label;}
@@ -105,7 +107,7 @@ export default function createCloud(token,port,root){
   }
 
   api.get('/accounts',async(req,res,next)=>{try{await load();res.json({accounts:accounts.map(publicAccount),
-    enabled:{google:!!(process.env.GOOGLE_CLIENT_ID&&process.env.GOOGLE_CLIENT_SECRET),onedrive:!!process.env.MS_CLIENT_ID,dropbox:!!process.env.DROPBOX_APP_KEY,webdav:true}});}catch(e){next(e);}});
+    enabled:{google:!!(process.env.GOOGLE_CLIENT_ID&&process.env.GOOGLE_CLIENT_SECRET),onedrive:!!process.env.MS_CLIENT_ID,dropbox:!!process.env.DROPBOX_APP_KEY,mega:true,terabox:!!(process.env.TERABOX_CLIENT_ID&&process.env.TERABOX_CLIENT_SECRET&&process.env.TERABOX_PRIVATE_SECRET),webdav:true}});}catch(e){next(e);}});
   api.post('/accounts/webdav',async(req,res,next)=>{try{
     const {name,url,username,password}=req.body||{};
     if(typeof url!=='string'||url.length>2048||typeof username!=='string'||typeof password!=='string'||!username||!password)throw bad(400,'Provide a WebDAV URL, username and password.');
@@ -113,10 +115,27 @@ export default function createCloud(token,port,root){
     await request(a.url,{method:'PROPFIND',headers:{Authorization:basic(a),Depth:'0'},redirect:'error'});
     res.status(201).json({account:await add(a)});
   }catch(e){next(e);}});
-  api.delete('/accounts/:id',async(req,res,next)=>{try{await load();account(req.params.id);accounts=accounts.filter(a=>a.id!==req.params.id);await persist();res.json({ok:true});}catch(e){next(e);}});
+  api.post('/accounts/mega',async(req,res,next)=>{try{
+    const {email,password}=req.body||{};
+    if(typeof email!=='string'||!/^\\S+@\\S+\\.\\S+$/.test(email)||email.length>255||
+      typeof password!=='string'||!password||password.length>1024)throw bad(400,'Enter your MEGA account email and password.');
+    const name=await verifyMega(email,password);
+    res.status(201).json({account:await add({type:'mega',name:String(name).slice(0,100),email,password})});
+  }catch(e){next(e);}});
+  api.delete('/accounts/:id',async(req,res,next)=>{try{await load();account(req.params.id);
+    disconnectMega(req.params.id);accounts=accounts.filter(a=>a.id!==req.params.id);
+    await persist();res.json({ok:true});}catch(e){next(e);}});
 
   api.post('/link/:type',async(req,res,next)=>{try{
-    const type=req.params.type;if(!providers.includes(type))throw bad(400,'Unsupported cloud provider.');
+    const type=req.params.type;
+    if(type==='terabox'){
+      const result=await startTeraBox(),id=random();
+      const p={type,device_code:result.device_code,expires:Date.now()+result.expires_in*1000,
+        status:'pending',nextPoll:0,interval:result.interval*1000};
+      pending.set(id,p);
+      return res.json({session:id,type,expires_in:result.expires_in,interval:result.interval,qrcode:result.qrcode});
+    }
+    if(!providers.includes(type))throw bad(400,'Unsupported cloud provider.');
     const key=type==='google'?process.env.GOOGLE_CLIENT_ID:type==='onedrive'?process.env.MS_CLIENT_ID:process.env.DROPBOX_APP_KEY;
     if(!key||(type==='google'&&!process.env.GOOGLE_CLIENT_SECRET))throw bad(400,'Set the '+(type==='google'?'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET':type==='onedrive'?'MS_CLIENT_ID':'DROPBOX_APP_KEY')+' environment variable(s) on the companion first.');
     const id=random(),p={type,expires:Date.now()+900000,status:'pending',nextPoll:0,interval:5000};
@@ -155,6 +174,13 @@ export default function createCloud(token,port,root){
     const p=pendingSession(req.params.id);
     if(p.status==='linked')return res.json({status:'linked',account:p.account});
     if(!p.device_code)return res.json({status:'pending'});
+    if(p.type==='terabox'){
+      if(Date.now()<p.nextPoll)return res.json({status:'pending'});
+      p.nextPoll=Date.now()+p.interval;
+      const credentials=await pollTeraBox(p.device_code);
+      if(!credentials)return res.json({status:'pending'});
+      return res.json({status:'linked',account:await finish(p,credentials)});
+    }
     if(Date.now()<p.nextPoll)return res.json({status:'pending'});
     p.nextPoll=Date.now()+p.interval;
     const google=p.type==='google';
@@ -193,6 +219,8 @@ export default function createCloud(token,port,root){
   }catch(e){next(e);}});
 
   async function browse(a,folder,nextPage){
+    if(a.type==='mega')return browseMega(a,folder);
+    if(a.type==='terabox')return browseTeraBox(a,folder,nextPage,refresh);
     if(a.type==='webdav'){
       const url=davUrl(a,folder||''),response=await request(url,{method:'PROPFIND',
         headers:{Authorization:basic(a),Depth:'1'},redirect:'error'});
@@ -245,6 +273,7 @@ export default function createCloud(token,port,root){
     await load();const a=account(req.params.id),id=String(req.body?.id||''),name=String(req.body?.name||'');
     if(!id||id.length>2048||!name||name.length>255)throw bad(400,'Select a named cloud file.');
     if(a.type==='webdav')davUrl(a,id);
+    if(a.type==='terabox'&&!/^\\d{1,24}$/.test(id))throw bad(400,'Invalid TeraBox file ID.');
     const t=ticket({account:a.id,id,name:name.slice(0,255),exp:Date.now()+4*3600000});
     res.json({playback:'/cloud/stream?t='+encodeURIComponent(t)});
   }catch(e){next(e);}});
@@ -252,6 +281,7 @@ export default function createCloud(token,port,root){
     await load();const claim=unticket(req.query.t),a=account(claim.account);
     const range=req.headers.range;
     if(range&&!/^bytes=\d*-\d*$/.test(range))throw bad(416,'Unsupported byte range.');
+    if(a.type==='mega')return await streamMega(a,claim.id,range,res);
     const headers={};if(range)headers.Range=range;
     let remote;
     if(a.type==='webdav')remote=await request(davUrl(a,claim.id),{headers:{...headers,Authorization:basic(a)},redirect:'error',signal:null});
@@ -262,7 +292,8 @@ export default function createCloud(token,port,root){
         {headers:{Authorization:'Bearer '+await refresh(a)}});
       const url=meta['@microsoft.graph.downloadUrl'];if(!url||!url.startsWith('https://'))throw bad(502,'OneDrive provided no playable download link.');
       remote=await request(url,{headers,signal:null});
-    }else{
+    }else if(a.type==='terabox')remote=await streamTeraBox(a,claim.id,range,refresh);
+    else{
       const link=await json('https://api.dropboxapi.com/2/files/get_temporary_link',{
         method:'POST',headers:{Authorization:'Bearer '+await refresh(a),'Content-Type':'application/json'},
         body:JSON.stringify({path:claim.id})});

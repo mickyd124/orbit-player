@@ -20,11 +20,12 @@
 <button type="button" class="close" id="cloud-cancel" aria-label="Close">×</button>
 <div class="eyebrow">CONNECT YOUR CLOUD STORAGE</div><h2>Add an account</h2>
 <form id="cloud-connect-form">
-<label>Provider<select id="cloud-provider"><option value="webdav">WebDAV / Nextcloud / ownCloud</option><option value="onedrive">Microsoft OneDrive</option><option value="dropbox">Dropbox</option><option value="google">Google Drive</option></select></label>
+<label>Provider<select id="cloud-provider"><option value="webdav">WebDAV / Nextcloud / ownCloud</option><option value="onedrive">Microsoft OneDrive</option><option value="dropbox">Dropbox</option><option value="google">Google Drive</option><option value="mega">MEGA</option><option value="terabox">TeraBox</option></select></label>
 <div id="cloud-webdav"><label>Account name<input id="dav-name" placeholder="Home cloud"></label><label>WebDAV folder URL<input id="dav-url" placeholder="https://cloud.example.com/remote.php/dav/files/name/"></label><label>Username<input id="dav-user" autocomplete="username"></label><label>App password<input id="dav-password" type="password" autocomplete="off"></label></div>
+<div id="cloud-mega" hidden><label>MEGA account email<input id="mega-email" type="email" autocomplete="username" placeholder="you@example.com"></label><label>MEGA password<input id="mega-password" type="password" autocomplete="off"></label><p class="cloud-hint">MEGA credentials are saved only on your companion computer. Use a trusted private machine.</p></div>
 <button id="cloud-connect-submit" class="primary" type="submit">Save WebDAV account</button>
 </form>
-<div id="cloud-link-step" hidden><p id="cloud-link-instructions"></p><a id="cloud-link-url" target="_blank" rel="noopener noreferrer"></a>
+<div id="cloud-link-step" hidden><p id="cloud-link-instructions"></p><img id="cloud-qr" hidden alt="TeraBox authorization QR code" width="210" height="210" style="background:white;padding:8px;max-width:100%;object-fit:contain"><a id="cloud-link-url" target="_blank" rel="noopener noreferrer"></a>
 <div id="cloud-link-code-wrap" hidden><label>Dropbox authorization code<input id="cloud-link-code" autocomplete="off"></label><button type="button" class="primary" id="cloud-code-submit">Finish linking Dropbox</button></div>
 <button type="button" id="cloud-finish">Close</button></div>
 <p id="cloud-dialog-status" role="status"></p>
