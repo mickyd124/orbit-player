@@ -5,6 +5,12 @@ on:
     branches: [main]
     paths:
       - .github/workflows/setup-orbit.yml
+      - app/**
+      - server/**
+      - scripts/**
+      - test/**
+      - package.json
+      - package-lock.json
 permissions:
   contents: write
 concurrency:
@@ -34,7 +40,9 @@ jobs:
           npm install --save-dev --save-exact @webos-tools/cli@3.2.6
           npm test
           node --check app/app.js
+          node --check app/cloud.js
           node --check server/index.js
+          node --check server/cloud.js
           npm run vendor
           cp node_modules/hls.js/LICENSE app/vendor/hls.LICENSE.txt
           cp node_modules/dashjs/LICENSE.md app/vendor/dash.LICENSE.txt
@@ -49,7 +57,7 @@ jobs:
           const base = 'https://github.com/'+process.env.GITHUB_REPOSITORY;
           const assets = base+'/releases/download/v'+app.version;
           const sha = createHash('sha256').update(fs.readFileSync('dist/'+filename)).digest('hex');
-          const description = 'Media player for LG webOS: HTTP(S), HLS and DASH. Conversion and BitTorrent require a computer companion.';
+          const description = 'LG webOS media player with Google Drive, OneDrive, Dropbox, WebDAV, HTTP streams and FFmpeg companion.';
           const iconUrl = 'https://raw.githubusercontent.com/'+process.env.GITHUB_REPOSITORY+'/main/app/icon.png';
           const manifest = {
             id:app.id, title:app.title, version:app.version, type:app.type,
@@ -91,7 +99,7 @@ jobs:
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" dist/*.ipk dist/apps.json dist/icon.png dist/SHA256SUMS --clobber
           else
-            gh release create "$tag" dist/*.ipk dist/apps.json dist/icon.png dist/SHA256SUMS --target "$(git rev-parse HEAD)" --title "Orbit Player $version" --notes "LG webOS app. HLS/DASH playback and optional computer companion. Physical TV testing outstanding. Homebrew repository: https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/apps.json"
+            gh release create "$tag" dist/*.ipk dist/apps.json dist/icon.png dist/SHA256SUMS --target "$(git rev-parse HEAD)" --title "Orbit Player $version" --notes "LG webOS video player with unified cloud library and computer companion. Physical TV testing outstanding. Homebrew repository: https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/apps.json"
           fi
       - name: Save webOS installer as workflow artifact
         uses: actions/upload-artifact@v4
