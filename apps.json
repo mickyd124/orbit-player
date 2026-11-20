@@ -15,16 +15,16 @@
       "manifest": {
         "id": "com.orbit.mediaplayer",
         "title": "Orbit Player",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "type": "web",
         "appDescription": "LG webOS media player with Google Drive, OneDrive, Dropbox, WebDAV, HTTP streams and FFmpeg companion.",
         "rootRequired": false,
         "sourceUrl": "https://github.com/mickyd124/orbit-player",
         "iconUri": "https://raw.githubusercontent.com/mickyd124/orbit-player/main/app/icon.png",
-        "ipkUrl": "https://github.com/mickyd124/orbit-player/releases/download/v1.1.0/com.orbit.mediaplayer_1.1.0_all.ipk",
-        "ipkSize": 428622,
+        "ipkUrl": "https://github.com/mickyd124/orbit-player/releases/download/v1.2.0/com.orbit.mediaplayer_1.2.0_all.ipk",
+        "ipkSize": 499082,
         "ipkHash": {
-          "sha256": "6de87413ec20e8e20f6a2e20f5c496dd785a7f0b67c992bb2df2278516f3daf9"
+          "sha256": "ca68f8918b41d2acbec5647a04bf561c6bb15681ac26d19e6ea9cb26942f62c9"
         }
       }
     }
