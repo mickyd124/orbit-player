@@ -25,7 +25,7 @@ The server listens on your LAN. Keep it on a trusted private network; do not exp
 ```sh
 npm run package:webos
 # The CLI outputs the exact .ipk filename in dist/.
-ares-install --device YOUR_TV dist/com.orbit.mediaplayer_1.0.0_all.ipk
+ares-install --device YOUR_TV dist/com.orbit.mediaplayer_1.1.0_all.ipk
 ares-launch --device YOUR_TV com.orbit.mediaplayer
 ```
 
@@ -51,6 +51,56 @@ node --check server/index.js
 
 Tests cover source validation. The optional integration check is `node test/integration.mjs` after generating `/tmp/orbit-test.mp4` with FFmpeg (a five-second H.264/AAC test video). A local FFmpeg → companion → HLS integration check was also performed during development. Verify remote navigation, native decoding, MSE support, HTTP LAN access, and package installation on your actual TV before relying on it. No physical TV or real peer swarm was available in the development environment.
 
+
+## Cloud library (Orbit 1.1.0)
+
+The **Cloud library** tab brings multiple accounts into the same TV app. Add as many accounts as you like, view videos and folders across your connected cloud roots, switch between accounts, browse subfolders, filter visible entries, and play or convert files without leaving Orbit.
+
+**The companion is required for cloud browsing, sign-in and playback.** Run it on a computer on your private network (npm ci, then npm start), connect to it from Settings on the TV, then open Cloud library → Connect an account. Your credentials and OAuth refresh tokens are held **only on the companion computer**, in the .runtime/cloud-accounts.json file with owner-only file permissions. Do not commit that file. The TV stores the companion URL and access token in localStorage, as it does for other companion features.
+
+Supported connectors:
+
+| Service | Setup on the companion | How you connect |
+| --- | --- | --- |
+| **WebDAV / Nextcloud / ownCloud** | No API registration | Enter an HTTPS WebDAV folder URL, username and an app-specific password in the TV dialog. Multiple servers and users are supported. |
+| **Microsoft OneDrive personal** | Register an app in Microsoft Entra, enable **public client flows**, support personal Microsoft accounts, and set MS_CLIENT_ID | Open the verification URL and enter the code shown on TV. Requested delegated permissions: Files.Read, User.Read, offline_access. |
+| **Dropbox** | Create a scoped Dropbox application with files.metadata.read, files.content.read and account_info.read; set DROPBOX_APP_KEY | Open the authorization link on a phone/computer, approve, then paste the resulting code into the TV dialog. Uses OAuth PKCE and offline refresh tokens, without embedding an app secret. |
+| **Google Drive** | Enable Drive API; create a Google OAuth **Web application** client; register redirect http://localhost:3000/cloud/google/callback; set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET | Start linking on TV, then open the provided localhost URL **on the computer running the companion**. Sign in with your own Google account; the TV updates when linked. Uses read-only Drive scope. |
+
+Example startup on macOS/Linux:
+
+```sh
+export ORBIT_TOKEN='use-a-long-unique-private-token'
+export MS_CLIENT_ID='your-entra-app-client-id'
+export DROPBOX_APP_KEY='your-dropbox-app-key'
+export GOOGLE_CLIENT_ID='your-google-web-app-client-id'
+export GOOGLE_CLIENT_SECRET='your-google-web-app-client-secret'
+npm start
+```
+
+Set only the providers you need. On Windows PowerShell use the normal $env:NAME="value" form. For non-default PORT, also change the registered Google OAuth redirect URI to match that port. Provider app registrations, OAuth consent configuration and (for Google Drive's restricted read scope) Google's verification/testing rules are your responsibility; no cloud credentials or provider app registrations are included in this repository.
+
+**Security and playback constraints:**
+- Keep the companion on a trusted private network; by default the TV accesses it over unencrypted HTTP. Do **not** expose port 3000 directly to the internet. Secure a remote deployment separately with TLS and proper access controls.
+- Cloud downloads are streamed through the companion with HTTP Range support for seeking. Temporary signed video URLs expire after four hours. Each video URL is a bearer capability: anyone who gets the URL can play it until expiry. Do not share these URLs.
+- Direct playback relies on webOS codec/container support. If a file does not play, choose **Convert** to transcode it to H.264/AAC using FFmpeg on the companion. No DRM bypass or guaranteed support for all formats.
+- The unified landing screen shows root-level entries from each account (up to one provider page per account); you can browse and paginate deeper within a selected account. Search filters the **currently loaded** items, not an entire cloud.
+- WebDAV requires HTTPS by default. ORBIT_ALLOW_INSECURE_WEBDAV=1 permits HTTP only if you knowingly accept cleartext WebDAV credentials on a trusted private LAN. For Nextcloud, use an app password where available.
+- Credential files are not encrypted at rest and are readable by the local operating-system account running Orbit. Protect that computer and its backups. Disconnecting an account removes its stored credentials; revoke the app's access at the provider to invalidate any issued OAuth tokens.
+- Google Drive testing-mode apps may require that you explicitly add your account as a test user, and public production distribution may require Google's restricted-scope verification.
+- Google OAuth callbacks must be completed in a browser on the **companion computer**. A localhost callback in a phone's browser points at the phone, not the companion.
+
+Validate before sideloading:
+
+```sh
+npm ci
+npm test
+node --check server/cloud.js
+node --check app/cloud.js
+npm run package:webos
+```
+
+The verification workflow in .github/workflows/cloud-verify.yml builds an IPK artifact for the cloud feature. Full playback, OAuth and remote-control behavior still require testing on a physical LG TV with real cloud accounts.
 
 ## Homebrew Channel installation
 

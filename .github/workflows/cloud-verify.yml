@@ -1,0 +1,40 @@
+name: Verify cloud player and build webOS installer
+
+on:
+  push:
+    branches:
+      - feature/multi-cloud-library
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run source checks
+        run: |
+          node --check app/app.js
+          node --check app/cloud.js
+          node --check server/index.js
+          node --check server/cloud.js
+          npm test
+      - name: Package for LG webOS
+        run: npm run package:webos
+      - name: Save installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-player-cloud-webos-ipk
+          path: dist/*.ipk
+          if-no-files-found: error

@@ -1,4 +1,5 @@
 import express from 'express';
+import createCloud from './cloud.js';
 import {randomBytes} from 'node:crypto';
 import {spawn,spawnSync} from 'node:child_process';
 import {mkdir,mkdtemp,rm,readFile} from 'node:fs/promises';
@@ -12,6 +13,9 @@ let torrentClient;
 app.use((req,res,next)=>{res.set('Access-Control-Allow-Origin','*');res.set('Access-Control-Allow-Headers','Authorization, Content-Type');res.set('Access-Control-Allow-Methods','GET,POST,DELETE,OPTIONS');res.set('Cache-Control','no-store');if(req.method==='OPTIONS')return res.sendStatus(204);next();});
 app.use(express.json({limit:'16kb'}));
 app.use('/api',(req,res,next)=>{if(req.headers.authorization!=='Bearer '+token)return res.status(401).json({error:'Invalid companion token'});next();});
+const cloud=createCloud(token,port,root);
+app.use('/api/cloud',cloud.api);
+app.use('/cloud',cloud.pub);
 app.get('/api/health',(req,res)=>res.json({ok:true,ffmpeg}));
 async function destroy(id){const session=sessions.get(id);if(!session)return;sessions.delete(id);session.process?.kill('SIGKILL');if(session.torrent)await new Promise(resolve=>session.torrent.destroy({destroyStore:true},resolve));session.server?.close();await rm(session.dir,{recursive:true,force:true});}
 async function torrentInput(source,session){

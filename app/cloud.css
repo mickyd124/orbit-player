@@ -1,0 +1,30 @@
+.cloud-actions{display:flex;gap:13px;flex-wrap:wrap;margin:22px 0 30px;align-items:center}
+.cloud-actions>button:not(.primary),#cloud-more,#cloud-finish,.cloud-small{background:#202d39;border:1px solid #364655;padding:12px 16px;border-radius:8px;color:#cbd7e3}
+.cloud-actions button:disabled,.cloud-small:disabled{opacity:.4;cursor:not-allowed}
+.cloud-layout{display:grid;grid-template-columns:245px minmax(0,1fr);gap:20px;align-items:start;min-height:400px}
+.cloud-sidebar,.cloud-main{padding:22px;border-radius:13px;background:#131c26;border:1px solid #2a3643}
+.cloud-sidebar h3{font-size:13px;margin:0 0 20px;color:#c2cfdb}
+.cloud-account{display:block;width:100%;padding:14px 11px;text-align:left;line-height:1.5;border-radius:8px;margin-bottom:7px;color:#acbccc}
+.cloud-account:hover,.cloud-account.selected{color:#c8f4da;background:#21362f}
+.cloud-hint{color:#8b96a7;line-height:1.7}
+.cloud-toolbar{display:flex;justify-content:space-between;align-items:center;gap:15px}
+.cloud-toolbar h3{font-size:16px}
+#cloud-search{max-width:240px;min-width:130px;margin:0;padding:10px}
+#cloud-status,#cloud-dialog-status{color:#a5b8c8;font-size:12px;line-height:1.7;margin:13px 0}
+#cloud-status.error,#cloud-dialog-status.error{color:#ffb6a8}
+.cloud-file{display:flex;gap:12px;align-items:center;padding:15px 13px;border-bottom:1px solid #2b3744}
+.cloud-file:last-child{border-bottom:0}
+.cloud-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.cloud-info strong{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cloud-info small{font-size:11px;color:#8495a5}
+.cloud-file .cloud-small{flex-shrink:0}
+.cloud-file .primary{color:#163225;background:#b9f5d3;border-color:#b9f5d3}
+#cloud-more{margin-top:20px}
+#cloud-dialog{max-height:90vh;overflow-y:auto}
+#cloud-dialog select{display:block;width:100%;padding:14px;margin-top:10px;background:#0b1119;color:#fff;border:1px solid #34404f;border-radius:7px}
+#cloud-dialog a{color:#b9f5d3;overflow-wrap:anywhere;display:block;margin:20px 0}
+.cloud-code{font-size:32px;letter-spacing:5px;padding:18px;margin:15px 0;background:#203328;color:#c1f5d7;border-radius:8px;font-weight:700;text-align:center}
+#cloud-link-step{line-height:1.6}
+#cloud-finish{margin:20px 0}
+@media(max-width:1050px){.cloud-layout{grid-template-columns:1fr}.cloud-account{display:inline-block;width:auto;margin-right:8px}.cloud-file{flex-wrap:wrap}}
+@media(max-width:620px){.cloud-file .cloud-small{padding:8px}.cloud-toolbar{flex-wrap:wrap}.cloud-file .cloud-info{flex-basis:100%}}
