@@ -19,7 +19,7 @@ function button(text,css,handler){
  var el=document.createElement('button');el.type='button';el.className=css||'';el.textContent=text;el.onclick=handler;return el;
 }
 function formatSize(size){if(!size)return '';var u=['B','KB','MB','GB','TB'],i=0;while(size>=1024&&i<4){size/=1024;i++;}return size.toFixed(i?1:0)+' '+u[i];}
-function badgeName(type){return {webdav:'WebDAV',dropbox:'Dropbox',google:'Google Drive',onedrive:'OneDrive',mega:'MEGA',terabox:'TeraBox'}[type]||type;}
+function badgeName(type){return {webdav:'WebDAV',dropbox:'Dropbox',google:'Google Drive',onedrive:'OneDrive',mega:'MEGA', 'mega-direct':'MEGA (TV direct)',terabox:'TeraBox'}[type]||type;}
 function showAccounts(){
  var list=$('cloud-accounts');list.textContent='';
  list.appendChild(button('☁ All clouds','cloud-account'+(!current?' selected':''),function(){current=null;stack=[];openFolder();}));
@@ -50,7 +50,7 @@ function showFiles(){
    }));
   }else{
    row.appendChild(button('▶ Play','primary cloud-small',function(){play(item,false);}));
-   row.appendChild(button('Convert','cloud-small',function(){play(item,true);}));
+   if(!item.direct)row.appendChild(button('Convert','cloud-small',function(){play(item,true);}));
   }
   list.appendChild(row);
  });
@@ -58,6 +58,11 @@ function showFiles(){
 }
 function play(item,convert){
  status('Preparing '+item.name+'…');
+ if(item.direct){
+  if(convert)return status('Direct MEGA cannot convert videos. Use a companion for FFmpeg.',true);
+  return window.OrbitDirectMega.play(item.accountId,item.id)
+   .then(function(){status('');}).catch(function(e){status(e.message,true);});
+ }
  api('/play/'+encodeURIComponent(item.accountId),{method:'POST',body:JSON.stringify({id:item.id,name:item.name})}).then(function(data){
   var conn=settings();
   if(!window.Orbit||!window.Orbit.play)throw new Error('Player is unavailable.');
@@ -65,6 +70,13 @@ function play(item,convert){
  }).then(function(){status('');}).catch(function(e){status(e.message,true);});
 }
 function loadAccount(id,folder,page){
+ if(window.OrbitDirectMega&&id.indexOf('direct-mega-')===0){
+  return window.OrbitDirectMega.browse(id,folder).then(function(data){
+   var ac=accounts.find(function(a){return a.id===id;});
+   return {items:(data.items||[]).filter(function(f){return f.folder||f.video;})
+    .map(function(f){return Object.assign({},f,{accountId:id,accountName:ac?ac.name:'MEGA',direct:true});}),next:null};
+  });
+ }
  var url='/browse/'+encodeURIComponent(id)+'?folder='+encodeURIComponent(folder||'');
  if(page)url+='&next='+encodeURIComponent(page);
  return api(url).then(function(data){
@@ -85,8 +97,22 @@ function openFolder(){
  }).catch(function(e){loading=false;showFiles();status(e.message,true);});
 }
 function refresh(){
+ var local=window.OrbitDirectMega?window.OrbitDirectMega.accounts():[];
+ var conn=settings();
+ if(!conn.url||!conn.token){
+  accounts=local;available={};showAccounts();
+  if(accounts.length)return openFolder();
+  files=[];showFiles();status('Connect MEGA directly on your TV, or configure a companion for full cloud access.');
+  return Promise.resolve();
+ }
  status('Connecting to companion…');
- return api('/accounts').then(function(data){accounts=data.accounts||[];available=data.enabled||{};showAccounts();openFolder();}).catch(function(e){status(e.message,true);});
+ return api('/accounts').then(function(data){
+  accounts=local.concat(data.accounts||[]);available=data.enabled||{};showAccounts();openFolder();
+ }).catch(function(e){
+  accounts=local;showAccounts();
+  if(accounts.length){openFolder();status('Companion unavailable; showing direct MEGA accounts.');}
+  else status(e.message,true);
+ });
 }
 $('cloud-refresh').onclick=refresh;
 $('cloud-search').oninput=showFiles;
@@ -100,12 +126,18 @@ $('cloud-more').onclick=function(){
 };
 $('cloud-remove').onclick=function(){
  var a=accounts.find(function(a){return a.id===current;});if(!a)return;
- if(!confirm('Disconnect '+a.name+'? Saved cloud credentials will be removed from the companion.'))return;
+ if(!confirm('Disconnect '+a.name+'? '+(a.direct?'This clears the account from TV memory.':'Saved cloud credentials will be removed from the companion.') ))return;
+ if(a.direct){
+  window.OrbitDirectMega.disconnect(a.id);current=null;stack=[];refresh();return;
+ }
  api('/accounts/'+encodeURIComponent(a.id),{method:'DELETE'}).then(function(){current=null;stack=[];refresh();}).catch(function(e){status(e.message,true);});
 };
 function changeProvider(){
- var type=$('cloud-provider').value,isDav=type==='webdav',isMega=type==='mega';
+ var type=$('cloud-provider').value,isDav=type==='webdav',isMega=type==='mega'||type==='mega-direct';
  $('cloud-webdav').hidden=!isDav;$('cloud-mega').hidden=!isMega;
+ $('mega-credential-note').textContent=type==='mega-direct'?
+  'Your password stays in TV memory for this session. Videos larger than 96 MB need a companion.':
+  'MEGA credentials are saved on the companion computer, not the TV.';
  $('cloud-connect-submit').textContent=isDav?'Save WebDAV account':isMega?'Connect MEGA account':'Start sign-in';
  dialogStatus('');
 }
@@ -122,7 +154,7 @@ function closeDialog(){
 $('cloud-cancel').onclick=closeDialog;
 $('cloud-finish').onclick=closeDialog;
 $('cloud-connect').onclick=function(){
- $('cloud-provider').value='webdav';changeProvider();$('cloud-dialog-status').textContent='';
+ $('cloud-provider').value=(settings().url&&settings().token)?'webdav':'mega-direct';changeProvider();$('cloud-dialog-status').textContent='';
  $('cloud-connect-form').hidden=false;$('cloud-link-step').hidden=true;
  var d=$('cloud-dialog');if(d.showModal)d.showModal();else d.setAttribute('open','');
  $('cloud-provider').focus();
@@ -148,6 +180,10 @@ $('cloud-connect-form').onsubmit=function(e){
    url:$('dav-url').value.trim(),username:$('dav-user').value.trim(),password:$('dav-password').value
   })}).then(function(){
    $('dav-password').value='';closeDialog();refresh();
+  });
+ }else if(type==='mega-direct'){
+  action=window.OrbitDirectMega.connect($('mega-email').value.trim(),$('mega-password').value).then(function(){
+   $('mega-password').value='';closeDialog();refresh();
   });
  }else if(type==='mega'){
   action=api('/accounts/mega',{method:'POST',body:JSON.stringify({
