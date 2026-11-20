@@ -15,7 +15,7 @@ function kindItem(id,name,isFolder,mime,size){
   return {id:String(id),name:String(name),folder:!!isFolder,video:!isFolder&&video(name,mime),size:Number(size)||0};
 }
 async function request(url,options={}){
-  const r=await fetch(url,{...options,signal:AbortSignal.timeout(25000)});
+  const r=await fetch(url,{signal:AbortSignal.timeout(25000),...options});
   if(!r.ok){let details='';try{const data=await r.json();details=data.error_description||data.error?.message||data.error_summary||data.error||'';}catch{}
     throw bad(r.status,typeof details==='string'&&details?details:'Cloud provider returned HTTP '+r.status);}
   return r;
@@ -254,20 +254,20 @@ export default function createCloud(token,port,root){
     if(range&&!/^bytes=\d*-\d*$/.test(range))throw bad(416,'Unsupported byte range.');
     const headers={};if(range)headers.Range=range;
     let remote;
-    if(a.type==='webdav')remote=await request(davUrl(a,claim.id),{headers:{...headers,Authorization:basic(a)},redirect:'error',signal:AbortSignal.timeout(300000)});
+    if(a.type==='webdav')remote=await request(davUrl(a,claim.id),{headers:{...headers,Authorization:basic(a)},redirect:'error',signal:null});
     else if(a.type==='google')remote=await request('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(claim.id)+'?alt=media',{
-      headers:{...headers,Authorization:'Bearer '+await refresh(a)},signal:AbortSignal.timeout(300000)});
+      headers:{...headers,Authorization:'Bearer '+await refresh(a)},signal:null});
     else if(a.type==='onedrive'){
       const meta=await json('https://graph.microsoft.com/v1.0/me/drive/items/'+encodeURIComponent(claim.id)+'?$select=id,@microsoft.graph.downloadUrl',
         {headers:{Authorization:'Bearer '+await refresh(a)}});
       const url=meta['@microsoft.graph.downloadUrl'];if(!url||!url.startsWith('https://'))throw bad(502,'OneDrive provided no playable download link.');
-      remote=await request(url,{headers,signal:AbortSignal.timeout(300000)});
+      remote=await request(url,{headers,signal:null});
     }else{
       const link=await json('https://api.dropboxapi.com/2/files/get_temporary_link',{
         method:'POST',headers:{Authorization:'Bearer '+await refresh(a),'Content-Type':'application/json'},
         body:JSON.stringify({path:claim.id})});
       if(!link.link||!link.link.startsWith('https://'))throw bad(502,'Dropbox did not provide a streaming link.');
-      remote=await request(link.link,{headers,signal:AbortSignal.timeout(300000)});
+      remote=await request(link.link,{headers,signal:null});
     }
     res.status(remote.status===206?206:200);
     for(const key of ['content-type','content-length','content-range','accept-ranges'])if(remote.headers.has(key))res.set(key,remote.headers.get(key));
@@ -275,7 +275,7 @@ export default function createCloud(token,port,root){
     res.set('Cache-Control','no-store');
     if(!remote.body)return res.end();
     const stream=Readable.fromWeb(remote.body);
-    req.on('close',()=>stream.destroy());
+    res.on('close',()=>stream.destroy());
     stream.on('error',e=>{if(!res.headersSent)next(e);else res.destroy(e);});
     stream.pipe(res);
   }catch(e){next(e);}});
