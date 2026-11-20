@@ -66,6 +66,17 @@ Supported connectors:
 | **Microsoft OneDrive personal** | Register an app in Microsoft Entra, enable **public client flows**, support personal Microsoft accounts, and set MS_CLIENT_ID | Open the verification URL and enter the code shown on TV. Requested delegated permissions: Files.Read, User.Read, offline_access. |
 | **Dropbox** | Create a scoped Dropbox application with files.metadata.read, files.content.read and account_info.read; set DROPBOX_APP_KEY | Open the authorization link on a phone/computer, approve, then paste the resulting code into the TV dialog. Uses OAuth PKCE and offline refresh tokens, without embedding an app secret. |
 | **Google Drive** | Enable Drive API; create a Google OAuth **Web application** client; register redirect http://localhost:3000/cloud/google/callback; set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET | Start linking on TV, then open the provided localhost URL **on the computer running the companion**. Sign in with your own Google account; the TV updates when linked. Uses read-only Drive scope. |
+| **MEGA** | Included `megajs` dependency; no app registration | Enter account email/password on TV. Credentials remain on companion; streamed files are decrypted server-side. |
+| **TeraBox** | Obtain TeraBox Open Platform client ID, secret and private secret | Scan QR code using TeraBox app. Open Platform may expose only the app-authorized folder. |
+
+### MEGA and TeraBox (additional cloud services)
+
+**MEGA (mega.io / mega.nz):** On the TV open Cloud library → Connect an account → **MEGA** and enter the email and password for the MEGA account. The companion uses the `megajs` library for encrypted file listings and downloads; downloads are decrypted by the companion and served to the TV with byte-range support. MEGA is not OAuth: **the email and password are stored in plaintext in `.runtime/cloud-accounts.json` on the companion**, with owner-only file permissions. Keep that computer protected. MEGA two-factor-authenticated accounts may need additional login support; this integration does not implement persistent 2FA sign-in. Streaming may be limited by MEGA transfer quotas.
+
+**TeraBox:** This uses TeraBox's **official Open Platform** (not a third-party link scraper). Apply for Open Platform credentials through TeraBox and configure `TERABOX_CLIENT_ID`, `TERABOX_CLIENT_SECRET`, and `TERABOX_PRIVATE_SECRET` on the companion. On the TV choose **TeraBox**, then scan the displayed QR code using the TeraBox mobile app and authorize. The companion exchanges the device code for access and refresh tokens and obtains the account-specific API domain. TeraBox file listings and time-limited downloads are proxied by the companion. **Important:** the Open Platform restricts accessible paths to the application's authorized directory, not necessarily the entirety of your personal TeraBox storage. Set `TERABOX_ROOT` to the app's authorized folder, for example `/From: Other Applications/Orbit-APPID/`, if required by your TeraBox app registration. This folder access limitation cannot be bypassed by Orbit.
+
+TeraBox documentation: https://www.terabox.com/integrations/docs/hindi
+MEGAJS documentation: https://mega.js.org/
 
 Example startup on macOS/Linux:
 
@@ -75,6 +86,10 @@ export MS_CLIENT_ID='your-entra-app-client-id'
 export DROPBOX_APP_KEY='your-dropbox-app-key'
 export GOOGLE_CLIENT_ID='your-google-web-app-client-id'
 export GOOGLE_CLIENT_SECRET='your-google-web-app-client-secret'
+export TERABOX_CLIENT_ID='your-terabox-client-id'
+export TERABOX_CLIENT_SECRET='your-terabox-client-secret'
+export TERABOX_PRIVATE_SECRET='your-terabox-private-secret'
+# export TERABOX_ROOT='/From: Other Applications/Orbit-APPID/'
 npm start
 ```
 
