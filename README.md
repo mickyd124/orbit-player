@@ -25,7 +25,7 @@ The server listens on your LAN. Keep it on a trusted private network; do not exp
 ```sh
 npm run package:webos
 # The CLI outputs the exact .ipk filename in dist/.
-ares-install --device YOUR_TV dist/com.orbit.mediaplayer_1.1.0_all.ipk
+ares-install --device YOUR_TV dist/com.orbit.mediaplayer_1.2.0_all.ipk
 ares-launch --device YOUR_TV com.orbit.mediaplayer
 ```
 
@@ -140,4 +140,4 @@ In Homebrew Channel, open Settings → Add repository and enter:
 
 https://raw.githubusercontent.com/mickyd124/orbit-player/main/apps.json
 
-The webOS TV app requires an optional computer companion for conversion and BitTorrent playback. Physical TV testing remains outstanding.
+The new direct MEGA mode can connect without a companion, but large films, Google Drive, TeraBox, conversion and BitTorrent still need it. The Homebrew catalog listing may continue pointing to the older published v1.1.0 package until a new v1.2.0 GitHub Release is uploaded with its exact SHA-256 and size. For the new beta build, use the IPK artifact from the GitHub Actions verification run, then sideload with ares-install. Physical TV testing remains outstanding.
