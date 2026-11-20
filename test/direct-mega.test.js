@@ -45,7 +45,7 @@ test('Direct MEGA refuses oversized downloads and clears sessions',async()=>{
  const a=await mega.connect('person@example.com','password');
  file.size=mega.maxFileBytes+1;
  await assert.rejects(mega.play(a.id,'node-1'),/too large for direct TV playback/);
- await assert.rejects(mega.browse(a.id,'missing'),/folder not found/);
+ assert.throws(()=>mega.browse(a.id,'missing'),/folder not found/);
  mega.disconnect(a.id);
  assert.equal(storage.closed,true);
  assert.equal(mega.accounts().length,0);
