@@ -19,7 +19,7 @@ function button(text,css,handler){
  var el=document.createElement('button');el.type='button';el.className=css||'';el.textContent=text;el.onclick=handler;return el;
 }
 function formatSize(size){if(!size)return '';var u=['B','KB','MB','GB','TB'],i=0;while(size>=1024&&i<4){size/=1024;i++;}return size.toFixed(i?1:0)+' '+u[i];}
-function badgeName(type){return {webdav:'WebDAV',dropbox:'Dropbox',google:'Google Drive',onedrive:'OneDrive'}[type]||type;}
+function badgeName(type){return {webdav:'WebDAV',dropbox:'Dropbox',google:'Google Drive',onedrive:'OneDrive',mega:'MEGA',terabox:'TeraBox'}[type]||type;}
 function showAccounts(){
  var list=$('cloud-accounts');list.textContent='';
  list.appendChild(button('☁ All clouds','cloud-account'+(!current?' selected':''),function(){current=null;stack=[];openFolder();}));
@@ -104,9 +104,9 @@ $('cloud-remove').onclick=function(){
  api('/accounts/'+encodeURIComponent(a.id),{method:'DELETE'}).then(function(){current=null;stack=[];refresh();}).catch(function(e){status(e.message,true);});
 };
 function changeProvider(){
- var isDav=$('cloud-provider').value==='webdav';
- $('cloud-webdav').hidden=!isDav;
- $('cloud-connect-submit').textContent=isDav?'Save WebDAV account':'Start sign-in';
+ var type=$('cloud-provider').value,isDav=type==='webdav',isMega=type==='mega';
+ $('cloud-webdav').hidden=!isDav;$('cloud-mega').hidden=!isMega;
+ $('cloud-connect-submit').textContent=isDav?'Save WebDAV account':isMega?'Connect MEGA account':'Start sign-in';
  dialogStatus('');
 }
 $('cloud-provider').onchange=changeProvider;
@@ -114,6 +114,8 @@ function closeDialog(){
  if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
  var d=$('cloud-dialog');if(d.close)d.close();else d.removeAttribute('open');
  linkSession=null;
+ $('mega-password').value='';
+ $('cloud-qr').removeAttribute('src');$('cloud-qr').hidden=true;
  $('cloud-connect-form').hidden=false;$('cloud-link-step').hidden=true;
  $('cloud-link-code-wrap').hidden=true;
 }
@@ -147,23 +149,35 @@ $('cloud-connect-form').onsubmit=function(e){
   })}).then(function(){
    $('dav-password').value='';closeDialog();refresh();
   });
+ }else if(type==='mega'){
+  action=api('/accounts/mega',{method:'POST',body:JSON.stringify({
+    email:$('mega-email').value.trim(),password:$('mega-password').value
+  })}).then(function(){
+    $('mega-password').value='';closeDialog();refresh();
+  });
  }else{
   action=api('/link/'+encodeURIComponent(type),{method:'POST'}).then(function(data){
    linkSession=data.session;
    $('cloud-connect-form').hidden=true;$('cloud-link-step').hidden=false;
    var instructions=$('cloud-link-instructions');instructions.textContent='';
-   if(data.user_code){
-    instructions.textContent='On your phone or computer, open '+data.verification_url+' and enter this code:';
+   $('cloud-qr').hidden=type!=='terabox';
+   if(type==='terabox'){
+    instructions.textContent='Open the official TeraBox app on your phone and scan this QR code to approve Orbit access:';
+    $('cloud-qr').src=data.qrcode||'';
+   }else if(data.user_code){
+    instructions.textContent='On your phone or computer, open '+data.verification_url+' and enter this code:
     var strong=document.createElement('div');strong.className='cloud-code';strong.textContent=data.user_code;instructions.appendChild(strong);
    }else{
     instructions.textContent=(type==='google'?'On the computer running Orbit companion, open this address in a browser:':'On your phone or computer, open this Dropbox authorization address:');
    }
    var url=$('cloud-link-url');url.textContent=data.url||data.verification_url||'';
    url.href=data.url||data.verification_url||'#';
+   url.hidden=type==='terabox';
    $('cloud-link-code-wrap').hidden=type!=='dropbox';
    $('cloud-finish').textContent='Close';
-   dialogStatus(type==='dropbox'?'After approving access, paste the code Dropbox shows you.':'Complete sign-in and keep Orbit open.');
-   if(type==='onedrive'||type==='google'){
+   dialogStatus(type==='dropbox'?'After approving access, paste the code Dropbox shows you.':
+    type==='terabox'?'Scan with TeraBox and approve access. This screen updates automatically.':'Complete sign-in and keep Orbit open.');
+   if(type==='onedrive'||type==='google'||type==='terabox'){
     if(pollTimer)clearInterval(pollTimer);
     pollTimer=setInterval(checkLink,Math.max(5000,(data.interval||5)*1000));checkLink();
    }
