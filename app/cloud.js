@@ -165,7 +165,7 @@ $('cloud-connect-form').onsubmit=function(e){
     instructions.textContent='Open the official TeraBox app on your phone and scan this QR code to approve Orbit access:';
     $('cloud-qr').src=data.qrcode||'';
    }else if(data.user_code){
-    instructions.textContent='On your phone or computer, open '+data.verification_url+' and enter this code:
+    instructions.textContent='On your phone or computer, open '+data.verification_url+' and enter this code:';
     var strong=document.createElement('div');strong.className='cloud-code';strong.textContent=data.user_code;instructions.appendChild(strong);
    }else{
     instructions.textContent=(type==='google'?'On the computer running Orbit companion, open this address in a browser:':'On your phone or computer, open this Dropbox authorization address:');
