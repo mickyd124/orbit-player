@@ -52,11 +52,28 @@ node --check server/index.js
 Tests cover source validation. The optional integration check is `node test/integration.mjs` after generating `/tmp/orbit-test.mp4` with FFmpeg (a five-second H.264/AAC test video). A local FFmpeg → companion → HLS integration check was also performed during development. Verify remote navigation, native decoding, MSE support, HTTP LAN access, and package installation on your actual TV before relying on it. No physical TV or real peer swarm was available in the development environment.
 
 
-## Cloud library (Orbit 1.1.0)
+## Cloud library (Orbit 1.2.0 beta: direct MEGA)
 
 The **Cloud library** tab brings multiple accounts into the same TV app. Add as many accounts as you like, view videos and folders across your connected cloud roots, switch between accounts, browse subfolders, filter visible entries, and play or convert files without leaving Orbit.
 
-**The companion is required for cloud browsing, sign-in and playback.** Run it on a computer on your private network (npm ci, then npm start), connect to it from Settings on the TV, then open Cloud library → Connect an account. Your credentials and OAuth refresh tokens are held **only on the companion computer**, in the .runtime/cloud-accounts.json file with owner-only file permissions. Do not commit that file. The TV stores the companion URL and access token in localStorage, as it does for other companion features.
+**For Google Drive, TeraBox, OneDrive, Dropbox, WebDAV and full-size MEGA videos, the companion is still required.** Run it on a computer on your private network (npm ci, then npm start), connect to it from Settings on the TV, then open Cloud library → Connect an account. Your credentials and OAuth refresh tokens are held **only on the companion computer**, in the .runtime/cloud-accounts.json file with owner-only file permissions. Do not commit that file. The TV stores the companion URL and access token in localStorage, as it does for other companion features.
+
+### Direct MEGA on LG webOS — no PC companion (experimental)
+
+Orbit's TV app now includes **MEGA — Direct on TV (small videos)** in Cloud library → Connect an account. You can connect a MEGA account while **Companion server URL** is empty. The browser MEGAJS library lists your folders and decrypts video on the TV; the TV player opens the decrypted file as a local Blob URL.
+
+**Restrictions:**
+- Files must be **96 MiB or smaller**. Full-length films generally exceed this size; they still need the companion for reliable streaming. Direct playback requires enough available TV memory and a codec supported by LG webOS. Orbit deliberately does not claim otherwise.
+- MEGA email and password remain in the TV app's JavaScript memory for the current session and are **not persisted to localStorage**. Reconnect after restarting Orbit. Do not enter credentials on a TV you do not trust. MEGA account 2FA and API quotas may prevent sign-in.
+- Only the TV app needs internet access. No separate iPhone app is required, but this mode does **not** provide iPhone QR-code login or unrestricted movie-size streaming.
+- Direct playback does **not** offer FFmpeg conversion. Use **MEGA — Companion** for large movies and unsupported formats.
+- The TV build bundles a local MEGAJS browser library at packaging time; no externally hosted script is required. Test on real TV hardware and with a real account before treating the feature as production-ready.
+
+**Why not the same direct connection for Google Drive and TeraBox?**
+Google's OAuth **TV device** flow presently permits `drive.file` (files opened or created by the app), but **not** `drive.readonly` for browsing an existing complete personal Drive library. Browsers cannot reliably play private Google Drive videos requiring an Authorization header as standard `video.src` URLs. TeraBox's Open Platform requires developer `client_secret` and `private_secret` values that must not be embedded in a public webOS app, and it can restrict access to an application-specific folder. The existing computer companion is the supported, full-library path for those providers; replacing it safely would require a separately hosted authenticated service, not simply changing an app button.
+
+Google TV OAuth scopes: https://developers.google.com/identity/protocols/oauth2/limited-input-device#allowedscopes
+TeraBox platform documentation: https://www.terabox.com/integrations/docs/hindi
 
 Supported connectors:
 
