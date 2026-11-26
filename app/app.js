@@ -24,14 +24,14 @@ function attach(url,type){$('player-status').textContent='';if(type==='hls'||/\.
 function fallbackPlayback(message){
  var current=activeMedia;
  if(!current||$('player').hidden)return;
- if(!current.safe&&settings.url&&settings.token&&/^https?:\\/\\//i.test(current.source)){
+ if(!current.safe&&settings.url&&settings.token&&/^https?:[/][/]/i.test(current.source)){
   activeMedia=null;
   $('player-status').textContent='Trying safe H.264 / AAC compatibility…';
   play(current.source,current.title,true,current.local,true).catch(function(e){$('player-status').textContent=e.message;});
  }else $('player-status').textContent=message;
 }
-async function play(url,title,convert,local,safe){cleanup();var generation=playGeneration,originalSource=url;var magnet=/^magnet:\\?/i.test(url);
- if(!local&&!magnet&&!/^https?:\\/\\//i.test(url))throw new Error('Enter an HTTP(S) URL or a BitTorrent magnet link.');
+async function play(url,title,convert,local,safe){cleanup();var generation=playGeneration,originalSource=url;var magnet=url.toLowerCase().startsWith('magnet:?');
+ if(!local&&!magnet&&!/^https?:[/][/]/i.test(url))throw new Error('Enter an HTTP(S) URL or a BitTorrent magnet link.');
  if(magnet||convert){
   var result=await api('/api/sessions',{method:'POST',body:JSON.stringify({url:url,mode:safe?'safe':'auto'})});
   if(generation!==playGeneration){api('/api/sessions/'+result.id,{method:'DELETE'}).catch(function(){});return;}
