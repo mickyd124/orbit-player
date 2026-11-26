@@ -149,3 +149,7 @@ Use `scripts/ish-install.sh` on Alpine iSH. The installer installs Node 22+, npm
 ## Android, Windows and Linux companion
 
 See [multi-platform companion installers](scripts/COMPANION.md). Android uses Termux; Windows uses WinGet; Linux supports common package managers. All share the same companion API and menu.
+
+## Browser companion dashboard
+
+Open `http://HOST-IP:3000/companion` on your home network after starting the companion. Unlock with the existing access token. Select Orbit Player, MultCloud TV or both, view live diagnostics and connected cloud accounts, and open the cloud library to manage them. See [companion installation guide](scripts/COMPANION.md#browser-control-centre).

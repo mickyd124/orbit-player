@@ -1,6 +1,6 @@
 # Shared companion installers
 
-Use one device on the same trusted Wi-Fi as the TV; both apps use one token and shared cloud accounts. Select 1 Orbit, 2 MultCloud, 3 Both. Port 3000 by default.
+Use one device on the same trusted Wi-Fi as the TV; both apps use one token and shared cloud accounts. Both apps start by default; select Orbit, MultCloud or Both in the browser dashboard. Port 3000 by default.
 
 ## Android (Termux, Android 7+)
 Install Termux from https://f-droid.org/packages/com.termux/ or https://github.com/termux/termux-app/releases (same source for all Termux add-ons). This is an Android server running in Termux, not a standalone APK. Android TV/Fire TV compatibility depends on device and OS. Android 5/6 are not supported. Install and run:
@@ -32,3 +32,9 @@ Use scripts/ish-install.sh; the existing iSH settings and account store remain s
 
 ## Connect the TV
 Find your host LAN IP and enter http://HOST-IP:3000 in Orbit Settings or MultCloud TV. Enter the token printed by the server. Dashboard /companion. Credentials for optional providers go into companion-settings.json beside the cloned repository on Windows/Linux/Android (see README for key names). Google redirect http://localhost:3000/cloud/google/callback must match port. Do not share token/config or .runtime; account credentials are not encrypted at rest. No internet exposure. FFmpeg conversion and P2P depend on host and codec; desktop fallback cloud-only mode disables P2P. Installers do not automatically configure port forwarding or system startup.
+
+## Browser control centre
+
+After installation, open **http://127.0.0.1:3000/companion** on the host or **http://HOST-IP:3000/companion** from another trusted LAN device. The desktop/Termux launcher attempts to open the browser after a successful health check; iSH requires opening Safari manually. Set ORBIT_NO_BROWSER=1 to suppress automatic browser opening. Unlock with the terminal's existing access token. No token is embedded in links or stored by the dashboard. The TV client retains its existing token storage.
+
+Choose Orbit, MultCloud, Both or Pause both. This controls the shared server's browser entry points, not separate processes: native TV API access and existing streams are not interrupted. The choice is in memory and resets to Both at restart unless a launch argument is provided. The dashboard shows actual health, conversion count, IP addresses, cloud provider readiness, connected account names and recent mode changes. Use Manage cloud accounts to open the existing cloud library and its account authorization dialogs. OAuth client configuration remains in the host settings file; full server logs are in the terminal. Ctrl+C stops the whole server. There is no remote shell or public internet support. HTTP is unencrypted, so only use trusted Wi-Fi. iSH may suspend when switching apps; use a second device or another host for persistent service. Browser home-screen shortcuts can be added manually; this is not an offline PWA.

@@ -1,6 +1,7 @@
 import express from 'express';
 import createCloud from './cloud.js';
 import {randomBytes} from 'node:crypto';
+import {networkInterfaces} from 'node:os';
 import {spawn,spawnSync} from 'node:child_process';
 import {mkdir,mkdtemp,rm,readFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -17,11 +18,30 @@ app.use('/api',(req,res,next)=>{if(req.headers.authorization!=='Bearer '+token)r
 const cloud=createCloud(token,port,root);
 app.use('/api/cloud',cloud.api);
 app.use('/cloud',cloud.pub);
-const mode=['orbit','multcloud','both'].includes(process.env.ORBIT_CLIENT_MODE)?process.env.ORBIT_CLIENT_MODE:'both';
-const clients=mode==='both'?['orbit','multcloud']:[mode];
-app.get('/api/health',(req,res)=>res.json({ok:true,ffmpeg,clients,mode,torrentEnabled}));
-app.get('/companion',(req,res)=>res.type('html').send('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Orbit iSH Companion</title><style>body{font:20px system-ui;background:#101c2a;color:white;padding:24px}a{display:block;background:#24628b;color:white;padding:20px;margin:14px 0;border-radius:12px;text-decoration:none}</style><h1>Shared companion</h1><p>Choose an enabled client. Both use the same cloud accounts and access token.</p>'+clients.map(c=>'<a href="/'+c+'">'+(c==='orbit'?'Orbit Player':'MultCloud TV — Cloud library')+'</a>').join('')+'<p>Use the token printed in iSH. Private Wi-Fi only.</p>'));
-for(const client of ['orbit','multcloud'])app.get('/'+client,(req,res)=>clients.includes(client)?res.redirect('/?client='+client):res.status(403).type('text').send('Client not selected. Restart the companion and select Both or this client.'));
+const modes=['orbit','multcloud','both','paused'];
+let mode=modes.includes(process.env.ORBIT_CLIENT_MODE)?process.env.ORBIT_CLIENT_MODE:'both';
+const selected=()=>mode==='both'?['orbit','multcloud']:mode==='paused'?[]:[mode];
+const started=Date.now();
+let activity=[{at:started,message:'Companion started'}];
+const record=message=>{activity=[{at:Date.now(),message},...activity].slice(0,30);};
+function addresses(){
+ const out=[];
+ try{for(const group of Object.values(networkInterfaces()))for(const a of group||[])if((a.family==='IPv4'||a.family===4)&&!a.internal)out.push('http://'+a.address+':'+port);}catch{}
+ return [...new Set(out)];
+}
+app.get('/api/health',(req,res)=>res.json({ok:true,ffmpeg,clients:selected(),mode,torrentEnabled}));
+app.get('/api/companion/status',(req,res)=>res.json({ok:true,mode,clients:selected(),ffmpeg,torrentEnabled,port,addresses:addresses(),uptime:Math.floor((Date.now()-started)/1000),platform:process.platform,node:process.version,sessions:sessions.size,activity}));
+app.post('/api/companion/mode',(req,res)=>{
+ // Management writes are same-origin only, in addition to the existing bearer check.
+ if(req.get('origin')!=='http://'+req.get('host')&&req.get('origin')!=='https://'+req.get('host'))return res.status(403).json({error:'Open the companion dashboard directly to change mode.'});
+ if(!modes.includes(req.body?.mode))return res.status(400).json({error:'Invalid mode'});
+ if(mode!==req.body.mode){mode=req.body.mode;record('Client selection changed to '+mode);}
+ res.json({ok:true,mode,clients:selected()});
+});
+app.get('/companion',(req,res)=>{res.set('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");res.sendFile(path.join(root,'server','dashboard','index.html'));});
+for(const [url,file] of [['/companion.js','dashboard.js'],['/companion.css','dashboard.css']])app.get(url,(req,res)=>res.sendFile(path.join(root,'server','dashboard',file)));
+for(const client of ['orbit','multcloud'])app.get('/'+client,(req,res)=>selected().includes(client)?res.redirect('/?client='+client):res.status(403).type('text').send('Client not selected. Enable it in /companion.'));
+app.get('/',(req,res,next)=>{const client=req.query.client;if(typeof client==='string'&&['orbit','multcloud'].includes(client)&&!selected().includes(client))return res.status(403).type('text').send('Client disabled. Enable it in /companion.');next();});
 async function destroy(id){const session=sessions.get(id);if(!session)return;sessions.delete(id);session.process?.kill('SIGKILL');if(session.torrent)await new Promise(resolve=>session.torrent.destroy({destroyStore:true},resolve));session.server?.close();await rm(session.dir,{recursive:true,force:true});}
 async function torrentInput(source,session){
  if(!torrentClient){const {default:WebTorrent}=await import('webtorrent');torrentClient=new WebTorrent();torrentClient.on('error',e=>console.error('Torrent client:',e.message));}

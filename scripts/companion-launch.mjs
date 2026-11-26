@@ -1,7 +1,6 @@
 import {readFileSync,writeFileSync,existsSync,chmodSync} from 'node:fs';
 import {randomBytes} from 'node:crypto';
 import {spawn} from 'node:child_process';
-import {createInterface} from 'node:readline/promises';
 import {networkInterfaces} from 'node:os';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -15,12 +14,7 @@ try{chmodSync(file,0o600)}catch{}
 if(!/^[a-f0-9]{48}$/.test(config.ORBIT_TOKEN||''))throw Error('Invalid saved token; back up and repair '+file);
 const port=Number(config.PORT||3000);
 if(!Number.isInteger(port)||port<1024||port>65535)throw Error('Invalid port');
-let choice=process.argv[2];
-if(!choice){
- console.log('\nORBIT / MULTCLOUD COMPANION\n1. Orbit Player\n2. MultCloud TV\n3. Both apps (default)');
- const rl=createInterface({input:process.stdin,output:process.stdout});
- try{choice=await rl.question('Select [1-3]: ')}finally{rl.close()}
-}
+const choice=process.argv[2]||'both';
 const mode=({'1':'orbit','2':'multcloud','3':'both','':'both',orbit:'orbit',multcloud:'multcloud',both:'both'})[choice];
 if(!mode)throw Error('Invalid selection');
 const allowed=['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','MS_CLIENT_ID','DROPBOX_APP_KEY','TERABOX_CLIENT_ID','TERABOX_CLIENT_SECRET','TERABOX_PRIVATE_SECRET','TERABOX_ROOT','GOOGLE_AUTH_MODE'];
@@ -44,5 +38,11 @@ else{
  try{for(const entries of Object.values(networkInterfaces()))for(const a of entries||[])if((a.family==='IPv4'||a.family===4)&&!a.internal)console.log('TV URL: http://'+a.address+':'+port)}catch{}
  console.log('Use this device Wi-Fi IP with port '+port+' if not listed.');
  console.log('Dashboard: http://127.0.0.1:'+port+'/companion\nAccess token: '+config.ORBIT_TOKEN+'\nSettings: '+file+'\nCtrl+C stops the server. Private LAN only.');
+ if(process.env.ORBIT_NO_BROWSER!=='1'){
+  const url='http://127.0.0.1:'+port+'/companion';
+  const mobile=process.platform==='android'||process.env.TERMUX_VERSION||process.env.PREFIX?.includes('/com.termux/');
+  const command=mobile?['termux-open-url',[url]]:process.platform==='win32'?['rundll32.exe',['url.dll,FileProtocolHandler',url]]:process.platform==='darwin'?['open',[url]]:process.env.DISPLAY||process.env.WAYLAND_DISPLAY?['xdg-open',[url]]:null;
+  if(command){const browser=spawn(command[0],command[1],{stdio:'ignore',detached:true});browser.on('error',()=>console.log('Open dashboard manually: '+url));browser.unref();}
+ }
  await done;process.exitCode=exitCode;
 }

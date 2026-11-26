@@ -79,11 +79,7 @@ PORT=${PORT:-3000}
 case "$PORT" in ''|*[!0-9]*) echo "Invalid port"; exit 1;; esac
 [ "$PORT" -ge 1024 ] && [ "$PORT" -le 65535 ] || exit 1
 export PORT
-choice=${1:-}
-if [ -z "$choice" ]; then
-  printf '\nORBIT / MULTCLOUD COMPANION\n1. Orbit Player\n2. MultCloud TV\n3. Both apps (default)\nSelect [1-3]: '
-  read -r choice || choice=3
-fi
+choice=${1:-both}
 case "$choice" in 1|orbit) ORBIT_CLIENT_MODE=orbit;; 2|multcloud) ORBIT_CLIENT_MODE=multcloud;; 3|both|'') ORBIT_CLIENT_MODE=both;; *) echo "Invalid selection"; exit 2;; esac
 export ORBIT_CLIENT_MODE
 ORBIT_TOKEN=$(cat "$BASE/token")
@@ -101,7 +97,7 @@ n=0
 while [ "$n" -lt 60 ]; do
   kill -0 "$pid" 2>/dev/null || { echo "Server exited"; exit 1; }
   if health=$(curl -fsS --max-time 2 -H "Authorization: Bearer $ORBIT_TOKEN" "http://127.0.0.1:$PORT/api/health" 2>/dev/null); then
-    printf '\nREADY: %s\nServer URL: http://YOUR-IPHONE-WIFI-IP:%s\nDashboard: http://127.0.0.1:%s/companion\nAccess token: %s\nKeep iSH open. Ctrl+C stops server.\n' "$health" "$PORT" "$PORT" "$ORBIT_TOKEN"
+    printf '\nREADY: %s\nServer URL: http://YOUR-IPHONE-WIFI-IP:%s\nDashboard: http://127.0.0.1:%s/companion\nAccess token: %s\nOpen the Dashboard URL in Safari manually. Keep iSH open. Ctrl+C stops server.\n' "$health" "$PORT" "$PORT" "$ORBIT_TOKEN"
     wait "$pid"; exit $?
   fi
   n=$((n+1)); sleep 1
