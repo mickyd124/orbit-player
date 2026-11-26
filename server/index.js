@@ -16,7 +16,11 @@ app.use('/api',(req,res,next)=>{if(req.headers.authorization!=='Bearer '+token)r
 const cloud=createCloud(token,port,root);
 app.use('/api/cloud',cloud.api);
 app.use('/cloud',cloud.pub);
-app.get('/api/health',(req,res)=>res.json({ok:true,ffmpeg}));
+const mode=['orbit','multcloud','both'].includes(process.env.ORBIT_CLIENT_MODE)?process.env.ORBIT_CLIENT_MODE:'both';
+const clients=mode==='both'?['orbit','multcloud']:[mode];
+app.get('/api/health',(req,res)=>res.json({ok:true,ffmpeg,clients,mode}));
+app.get('/companion',(req,res)=>res.type('html').send('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Orbit iSH Companion</title><style>body{font:20px system-ui;background:#101c2a;color:white;padding:24px}a{display:block;background:#24628b;color:white;padding:20px;margin:14px 0;border-radius:12px;text-decoration:none}</style><h1>Shared companion</h1><p>Choose an enabled client. Both use the same cloud accounts and access token.</p>'+clients.map(c=>'<a href="/'+c+'">'+(c==='orbit'?'Orbit Player':'MultCloud TV — Cloud library')+'</a>').join('')+'<p>Use the token printed in iSH. Private Wi-Fi only.</p>'));
+for(const client of ['orbit','multcloud'])app.get('/'+client,(req,res)=>clients.includes(client)?res.redirect('/?client='+client):res.status(403).type('text').send('Client not selected. Restart the companion and select Both or this client.'));
 async function destroy(id){const session=sessions.get(id);if(!session)return;sessions.delete(id);session.process?.kill('SIGKILL');if(session.torrent)await new Promise(resolve=>session.torrent.destroy({destroyStore:true},resolve));session.server?.close();await rm(session.dir,{recursive:true,force:true});}
 async function torrentInput(source,session){
  if(!torrentClient){const {default:WebTorrent}=await import('webtorrent');torrentClient=new WebTorrent();torrentClient.on('error',e=>console.error('Torrent client:',e.message));}
