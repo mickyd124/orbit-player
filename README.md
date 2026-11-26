@@ -157,3 +157,7 @@ Open `http://HOST-IP:3000/companion` on your home network after starting the com
 ## Smart media compatibility (1.4.0)
 
 The companion now probes video and audio codecs with FFprobe, remuxes conservative H.264/AAC streams, converts unsupported tracks and supports audio-only cloud playback. The webOS app retries failed HTTP media playback through the companion in safe H.264/AAC mode. See [media engine and codec inventory](scripts/COMPANION.md#smart-webos-media-compatibility-140). No separate TV codec installation is required.
+
+## Node-free iPhone companion
+
+The default iSH installer now uses Python instead of Node.js. See [Python iSH installation and cloud setup](scripts/ISH-PYTHON.md). Android, Windows and Linux retain Node.js.

@@ -28,7 +28,7 @@ In PowerShell:
 WinGet installs Node LTS, Git and optional FFmpeg. Allow private networks only if prompted. Restart with `%LOCALAPPDATA%\OrbitCompanion\Start-Companion.cmd` (double click in Explorer). If PATH was changed, reopen the shell. Execution policy bypass applies to this PowerShell process only; review the script before running.
 
 ## iPhone iSH
-Use scripts/ish-install.sh; the existing iSH settings and account store remain separate.
+Use scripts/ish-install.sh for the Python edition (no Node/npm). See [iSH Python guide](ISH-PYTHON.md). Original Node installer: scripts/ish-node-install.sh. Existing token and settings retained; cloud accounts not automatically migrated.
 
 ## Connect the TV
 Find your host LAN IP and enter http://HOST-IP:3000 in Orbit Settings or MultCloud TV. Enter the token printed by the server. Dashboard /companion. Credentials for optional providers go into companion-settings.json beside the cloned repository on Windows/Linux/Android (see README for key names). Google redirect http://localhost:3000/cloud/google/callback must match port. Do not share token/config or .runtime; account credentials are not encrypted at rest. No internet exposure. FFmpeg conversion and P2P depend on host and codec; desktop fallback cloud-only mode disables P2P. Installers do not automatically configure port forwarding or system startup.
