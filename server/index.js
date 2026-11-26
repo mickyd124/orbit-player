@@ -9,6 +9,7 @@ import {validateSource} from './policy.js';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const app=express(),token=process.env.ORBIT_TOKEN||randomBytes(24).toString('hex'),port=Number(process.env.PORT||3000),sessions=new Map();
 const ffmpeg=spawnSync('ffmpeg',['-version'],{stdio:'ignore'}).status===0;
+const torrentEnabled=process.env.ORBIT_DISABLE_TORRENT!=='1';
 let torrentClient;
 app.use((req,res,next)=>{res.set('Access-Control-Allow-Origin','*');res.set('Access-Control-Allow-Headers','Authorization, Content-Type');res.set('Access-Control-Allow-Methods','GET,POST,DELETE,OPTIONS');res.set('Cache-Control','no-store');if(req.method==='OPTIONS')return res.sendStatus(204);next();});
 app.use(express.json({limit:'16kb'}));
@@ -18,7 +19,7 @@ app.use('/api/cloud',cloud.api);
 app.use('/cloud',cloud.pub);
 const mode=['orbit','multcloud','both'].includes(process.env.ORBIT_CLIENT_MODE)?process.env.ORBIT_CLIENT_MODE:'both';
 const clients=mode==='both'?['orbit','multcloud']:[mode];
-app.get('/api/health',(req,res)=>res.json({ok:true,ffmpeg,clients,mode}));
+app.get('/api/health',(req,res)=>res.json({ok:true,ffmpeg,clients,mode,torrentEnabled}));
 app.get('/companion',(req,res)=>res.type('html').send('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Orbit iSH Companion</title><style>body{font:20px system-ui;background:#101c2a;color:white;padding:24px}a{display:block;background:#24628b;color:white;padding:20px;margin:14px 0;border-radius:12px;text-decoration:none}</style><h1>Shared companion</h1><p>Choose an enabled client. Both use the same cloud accounts and access token.</p>'+clients.map(c=>'<a href="/'+c+'">'+(c==='orbit'?'Orbit Player':'MultCloud TV — Cloud library')+'</a>').join('')+'<p>Use the token printed in iSH. Private Wi-Fi only.</p>'));
 for(const client of ['orbit','multcloud'])app.get('/'+client,(req,res)=>clients.includes(client)?res.redirect('/?client='+client):res.status(403).type('text').send('Client not selected. Restart the companion and select Both or this client.'));
 async function destroy(id){const session=sessions.get(id);if(!session)return;sessions.delete(id);session.process?.kill('SIGKILL');if(session.torrent)await new Promise(resolve=>session.torrent.destroy({destroyStore:true},resolve));session.server?.close();await rm(session.dir,{recursive:true,force:true});}
@@ -33,7 +34,7 @@ async function torrentInput(source,session){
 }
 app.post('/api/sessions',async(req,res)=>{
  let id;
- try{const source=req.body.url,kind=validateSource(source);if(!ffmpeg)return res.status(503).json({error:'Install FFmpeg on the companion computer first.'});if(sessions.size>=3)return res.status(429).json({error:'Companion is busy. Close another playback session.'});
+ try{const source=req.body.url,kind=validateSource(source);if(kind==='torrent'&&!torrentEnabled)return res.status(503).json({error:'BitTorrent disabled on this companion build; direct cloud playback is available.'});if(!ffmpeg)return res.status(503).json({error:'Install FFmpeg on the companion computer first.'});if(sessions.size>=3)return res.status(429).json({error:'Companion is busy. Close another playback session.'});
  id=randomBytes(24).toString('hex');await mkdir(path.join(root,'.runtime'),{recursive:true});const dir=await mkdtemp(path.join(root,'.runtime','play-'));const session={dir,lastAccess:Date.now(),error:null};sessions.set(id,session);
  const input=kind==='torrent'?await torrentInput(source,session):source;
  if(!sessions.has(id))throw new Error('Session expired');

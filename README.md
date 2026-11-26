@@ -145,3 +145,7 @@ The new direct MEGA mode can connect without a companion, but large films, Googl
 ## Shared iPhone iSH companion (Orbit / MultCloud TV)
 
 Use `scripts/ish-install.sh` on Alpine iSH. The installer installs Node 22+, npm, Git, and optional FFmpeg, uses the locked production dependencies, preserves your token and cloud account data, and opens a menu. Select Orbit, MultCloud TV, or Both. The choice controls the browser launch shortcuts; it is not a separate security boundary. Both clients share the existing authenticated cloud API and account store. The dashboard is `http://PHONE-IP:3000/companion`; the client shortcuts are `/orbit` and `/multcloud`. Enter the printed token in Settings. On the installed Orbit app, enter the base URL and token as before. MultCloud TV opens the shared cloud interface, not the official MultCloud API. iSH must stay foreground, and Node/V8 compatibility, video conversion, and P2P remain device-dependent. Never expose the HTTP port publicly.
+
+## Android, Windows and Linux companion
+
+See [multi-platform companion installers](scripts/COMPANION.md). Android uses Termux; Windows uses WinGet; Linux supports common package managers. All share the same companion API and menu.
