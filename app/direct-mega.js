@@ -1,8 +1,7 @@
 (function(root){
 'use strict';
-// TV-only, memory-bounded MEGA access. Does not use or persist the companion account store.
+// TV-only, range-streamed MEGA access. Credentials remain in session memory.
 // MEGA's browser SDK decrypts files; browser video elements cannot consume its encrypted URLs.
-var MAX_FILE_BYTES=96*1024*1024;
 var accounts=[];
 var seq=0;
 function fail(message){return new Error(message);}
@@ -51,17 +50,11 @@ function browse(id,folder){
 async function play(id,fileId){
  var a=account(id),file=a.storage.files[fileId];
  if(!file||file.directory||!isVideo(file))throw fail('Choose a supported MEGA video file.');
- if(!Number.isFinite(Number(file.size))||Number(file.size)<0)
+ if(!Number.isSafeInteger(Number(file.size))||Number(file.size)<=0)
   throw fail('MEGA returned an invalid file size.');
- if(Number(file.size)>MAX_FILE_BYTES)
-  throw fail('This video is too large for direct TV playback. The no-companion mode is limited to 96 MB because the TV must decrypt the whole file in memory. Use a companion for larger films.');
- if(!root.Orbit||typeof root.Orbit.openBlob!=='function')
-  throw fail('Orbit video playback is unavailable.');
- // Only use a decrypted Blob URL on the TV. Never expose a MEGA key in a media URL.
- var data=await file.downloadBuffer();
- var blob=new Blob([data],{type:mimeOf(file.name)});
- if(blob.size>MAX_FILE_BYTES)throw fail('Direct MEGA download exceeded the TV memory limit.');
- return root.Orbit.openBlob(blob,file.name);
+ if(!root.Orbit||typeof root.Orbit.openMegaStream!=='function')
+  throw fail('Orbit streaming player is unavailable.');
+ return root.Orbit.openMegaStream(file,file.name);
 }
 function disconnect(id){
  var index=accounts.findIndex(function(a){return a.id===id;});
@@ -70,7 +63,6 @@ function disconnect(id){
  try{a.storage.close();}catch(e){}
 }
 root.OrbitDirectMega={
- accounts:publicAccounts,connect:connect,browse:browse,play:play,disconnect:disconnect,
- maxFileBytes:MAX_FILE_BYTES
+ accounts:publicAccounts,connect:connect,browse:browse,play:play,disconnect:disconnect
 };
 }(window));

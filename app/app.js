@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-var $=function(id){return document.getElementById(id);},video=$('video'),hls=null,dash=null,session=null,objectURL=null,returnFocus=null,activeMedia=null,playGeneration=0;
+var $=function(id){return document.getElementById(id);},video=$('video'),hls=null,dash=null,session=null,objectURL=null,returnFocus=null,activeMedia=null,playGeneration=0,megaStream=null;
 function read(key,fallback){try{return JSON.parse(localStorage.getItem(key))||fallback;}catch(e){return fallback;}}
 var settings=read('orbit-settings',{}),history=read('orbit-history',[]);
 var companionPage=/^https?:$/.test(location.protocol)&&/(?:^|[?&])client=(orbit|multcloud)(?:&|$)/.test(location.search);
@@ -18,7 +18,7 @@ $('server-url').value=settings.url||'';$('server-token').value=settings.token||'
 $('settings-form').onsubmit=function(e){e.preventDefault();settings={url:$('server-url').value.trim().replace(/\/$/,''),token:$('server-token').value.trim()};save('orbit-settings',settings);toast('Connection saved');if(window.OrbitCloud){$('cloud-refresh').click();if(multcloudMode)view('cloud');}};
 function api(path,options){if(!settings.url) return Promise.reject(new Error('Set your companion URL and access token in Settings first.'));options=options||{};options.headers={'Content-Type':'application/json','Authorization':'Bearer '+(settings.token||'')};return fetch(settings.url+path,options).then(function(r){return r.json().then(function(data){if(!r.ok)throw new Error(data.error||'Companion request failed');return data;});});}
 $('check-server').onclick=function(){$('connection-status').textContent='Connecting…';api('/api/health').then(function(data){$('connection-status').textContent='Connected · FFmpeg '+(data.ffmpeg?'available':'missing')+(data.clients?' · Clients: '+data.clients.join(', '):'');}).catch(function(e){$('connection-status').textContent=e.message;});};
-function cleanup(){activeMedia=null;playGeneration++;video.pause();if(hls){hls.destroy();hls=null;}if(dash){dash.reset();dash=null;}video.removeAttribute('src');video.load();if(objectURL){URL.revokeObjectURL(objectURL);objectURL=null;}if(session){api('/api/sessions/'+session,{method:'DELETE'}).catch(function(){});session=null;}}
+function cleanup(){if(megaStream){megaStream.stop();megaStream=null;}activeMedia=null;playGeneration++;video.pause();if(hls){hls.destroy();hls=null;}if(dash){dash.reset();dash=null;}video.removeAttribute('src');video.load();if(objectURL){URL.revokeObjectURL(objectURL);objectURL=null;}if(session){api('/api/sessions/'+session,{method:'DELETE'}).catch(function(){});session=null;}}
 function showError(e){$('source-error').textContent=e.message;if(!$('player').hidden)$('player-status').textContent=e.message;}
 function attach(url,type){$('player-status').textContent='';if(type==='hls'||/\.m3u8(?:\?|$)/i.test(url)){if(video.canPlayType('application/vnd.apple.mpegurl'))video.src=url;else if(window.Hls&&Hls.isSupported()){hls=new Hls();hls.loadSource(url);hls.attachMedia(video);hls.on(Hls.Events.ERROR,function(event,data){if(data.fatal)fallbackPlayback('Stream failed. Check source or codec support.');});}else throw new Error('HLS is unavailable on this device.');}else if(type==='dash'||/\.mpd(?:\?|$)/i.test(url)){if(!window.dashjs)throw new Error('DASH engine unavailable.');dash=dashjs.MediaPlayer().create();dash.initialize(video,url,true);dash.on('error',function(){fallbackPlayback('DASH playback failed. Check codec and source support.');});}else video.src=url;var promise=video.play();if(promise)promise.catch(function(e){if(e.name==='NotAllowedError')$('player-status').textContent='Press OK or Play to start.';});}
 function fallbackPlayback(message){
@@ -49,6 +49,17 @@ function openBlob(blob,title){
  var url=URL.createObjectURL(blob);
  return play(url,title,false,true).then(function(){objectURL=url;}).catch(function(e){URL.revokeObjectURL(url);throw e;});
 }
-window.Orbit={play:play,openBlob:openBlob,toast:toast};
+function openMegaStream(file,title){
+ if(!window.OrbitMegaStream)throw new Error('MEGA streaming engine unavailable.');
+ if(!/\.(mp4|m4v|mov)$/i.test(title))throw new Error('Direct streaming supports compatible MP4/M4V/MOV files. Use MEGA companion mode for other containers.');
+ cleanup();
+ $('playing-title').textContent=title;$('player').hidden=false;closeDialog();$('exit-player').focus();
+ $('player-status').textContent='Preparing MEGA stream…';
+ try{
+  megaStream=window.OrbitMegaStream.open(video,file,function(message){$('player-status').textContent=message;});
+ }catch(e){$('player').hidden=true;throw e;}
+ return Promise.resolve();
+}
+window.Orbit={play:play,openBlob:openBlob,openMegaStream:openMegaStream,toast:toast};
 function clock(){$('clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}clock();setInterval(clock,60000);renderHistory();if(companionPage){if(multcloudMode){document.title='MultCloud TV — Cloud library';document.querySelector('.brand').textContent='MultCloud TV';document.querySelector('[data-view="cloud"]').focus();}view(settings.token?(multcloudMode?'cloud':'home'):'settings');}
 }());

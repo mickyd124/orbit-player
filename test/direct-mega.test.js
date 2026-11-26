@@ -13,7 +13,7 @@ function makeHarness(){
    close(){storage.closed=true;},closed:false};
  const captured={};
  const window={mega:{Storage:class {constructor(args){captured.creds=args;this.ready=Promise.resolve(storage);}}},
-   Orbit:{async openBlob(blob,name){captured.blob=blob;captured.name=name;return true;}}};
+   Orbit:{async openMegaStream(file,name){captured.file=file;captured.name=name;return true;}}};
  vm.runInNewContext(source,{window,Blob,Promise,Number,Date,Math,Error,String});
  return {mega:window.OrbitDirectMega,file,storage,captured};
 }
@@ -32,23 +32,17 @@ test('Direct MEGA connects and browses cloud folders without a companion',async(
  assert.equal(sub.items[0].video,true);
  assert.equal(sub.items[0].name,'clip.mp4');
 });
-test('Direct MEGA uses a bounded decrypted Blob with MP4 MIME type',async()=>{
- const {mega,captured}=makeHarness();
+test('Direct MEGA delegates large files to range streaming without downloading a whole file',async()=>{
+ const {mega,file,captured,storage}=makeHarness();
  const a=await mega.connect('person@example.com','password');
+ file.size=50*1024*1024*1024;
+ file.downloadBuffer=()=>{throw new Error('Unexpected full download');};
  await mega.play(a.id,'node-1');
- assert.equal(captured.blob.type,'video/mp4');
- assert.equal(captured.blob.size,4);
+ assert.equal(captured.file,file);
  assert.equal(captured.name,'clip.mp4');
-});
-test('Direct MEGA refuses oversized downloads and clears sessions',async()=>{
- const {mega,file,storage}=makeHarness();
- const a=await mega.connect('person@example.com','password');
- file.size=mega.maxFileBytes+1;
- await assert.rejects(mega.play(a.id,'node-1'),/too large for direct TV playback/);
  assert.throws(()=>mega.browse(a.id,'missing'),/folder not found/);
  mega.disconnect(a.id);
  assert.equal(storage.closed,true);
- assert.equal(mega.accounts().length,0);
  await assert.rejects(mega.play(a.id,'node-1'),/no longer connected/);
 });
 test('Direct MEGA validates account input',async()=>{

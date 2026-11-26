@@ -136,7 +136,7 @@ function changeProvider(){
  var type=$('cloud-provider').value,isDav=type==='webdav',isMega=type==='mega'||type==='mega-direct';
  $('cloud-webdav').hidden=!isDav;$('cloud-mega').hidden=!isMega;
  $('mega-credential-note').textContent=type==='mega-direct'?
-  'Your password stays in TV memory for this session. Videos larger than 96 MB need a companion.':
+  'Your password stays in TV memory for this session. Compatible MP4 videos stream directly without a file-size cap; other formats need a companion.':
   'MEGA credentials are saved on the companion computer, not the TV.';
  $('cloud-connect-submit').textContent=isDav?'Save WebDAV account':isMega?'Connect MEGA account':'Start sign-in';
  dialogStatus('');
