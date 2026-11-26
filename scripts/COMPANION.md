@@ -9,7 +9,7 @@ Install Termux from https://f-droid.org/packages/com.termux/ or https://github.c
     curl -fsSL https://raw.githubusercontent.com/mickyd124/orbit-player/main/scripts/companion-linux-android.sh -o companion-install.sh
     sh companion-install.sh
 
-Restart: `sh ~/orbit-companion/start.sh both`. Keep Termux running, disable battery optimisation for it if needed, and stop with Ctrl+C. Android uses direct streaming plus optional FFmpeg; BitTorrent disabled because of native dependencies.
+Restart: `sh ~/orbit-companion/start.sh both`. An optional Termux:Widget shortcut named Orbit-Companion is installed in ~/.shortcuts (install the matching Termux:Widget add-on separately). Keep Termux running, disable battery optimisation for it if needed, and stop with Ctrl+C. Android uses direct streaming plus optional FFmpeg; BitTorrent disabled because of native dependencies.
 
 ## Linux
 Supports apt/dnf/pacman/apk package managers with sudo or root for packages; runs the server as the invoking account. Official Node 22 binary fallback for glibc x64/arm64/armv7 when available. Alpine needs a compatible packaged Node. Run:

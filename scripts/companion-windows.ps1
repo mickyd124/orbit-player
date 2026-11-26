@@ -17,11 +17,11 @@ function Install-Package([string]$Id){
 Refresh-Path
 if(-not(Get-Command git.exe -ErrorAction SilentlyContinue)){Install-Package 'Git.Git'}
 $nodeOk=$false
-if(Get-Command node.exe -ErrorAction SilentlyContinue){& node.exe -e 'process.exit(+process.versions.node.split(".")[0]>=22?0:1)';$nodeOk=($LASTEXITCODE -eq 0)}
+if(Get-Command node.exe -ErrorAction SilentlyContinue){& node.exe -e 'process.exit(+process.versions.node.split(String.fromCharCode(46))[0]>=22?0:1)';$nodeOk=($LASTEXITCODE -eq 0)}
 if(-not $nodeOk){Install-Package 'OpenJS.NodeJS.LTS'}
 if(-not(Get-Command ffmpeg.exe -ErrorAction SilentlyContinue)){try{Install-Package 'Gyan.FFmpeg'}catch{Write-Warning 'FFmpeg unavailable; direct playback only.'}}
 Refresh-Path
-& node.exe -e 'process.exit(+process.versions.node.split(".")[0]>=22?0:1)'
+& node.exe -e 'process.exit(+process.versions.node.split(String.fromCharCode(46))[0]>=22?0:1)'
 Require-Exit 'Node 22+ is required. Restart PowerShell after installation if necessary.'
 if(-not(Get-Command npm.cmd -ErrorAction SilentlyContinue)){throw 'npm not available.'}
 if(Test-Path (Join-Path $src '.git')){

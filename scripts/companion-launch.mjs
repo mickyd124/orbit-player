@@ -1,4 +1,4 @@
-import {readFileSync,writeFileSync,mkdirSync,existsSync,chmodSync} from 'node:fs';
+import {readFileSync,writeFileSync,existsSync,chmodSync} from 'node:fs';
 import {randomBytes} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline/promises';

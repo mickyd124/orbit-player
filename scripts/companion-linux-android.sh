@@ -6,7 +6,7 @@ SRC="$BASE/orbit-player"
 die(){ printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 mkdir -p "$BASE"
 MOBILE=0
-if [ -n "${TERMUX_VERSION:-}" ] || [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ]; then MOBILE=1; fi
+if [ -n "${TERMUX_VERSION:-}" ] || { [ -n "${PREFIX:-}" ] && [ -x "$PREFIX/bin/pkg" ]; }; then MOBILE=1; fi
 rootrun(){ if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi; }
 if [ "$MOBILE" = 1 ]; then
   pkg update -y
@@ -86,6 +86,15 @@ else
 fi
 START
 chmod 700 "$BASE/start.sh"
+if [ "$MOBILE" = 1 ]; then
+  mkdir -p "$HOME/.shortcuts"
+  cat > "$HOME/.shortcuts/Orbit-Companion" <<'WIDGET'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/orbit-companion/start.sh"
+WIDGET
+  chmod 700 "$HOME/.shortcuts/Orbit-Companion"
+  echo "Optional home screen launcher: install matching Termux:Widget and select Orbit-Companion."
+fi
 echo "Restart: sh $BASE/start.sh"
 if [ "${1:-}" = --install-only ]; then exit 0; fi
 exec sh "$BASE/start.sh" "$@"
