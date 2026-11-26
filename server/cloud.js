@@ -5,13 +5,13 @@ import {Readable} from 'node:stream';
 import path from 'node:path';
 import {verifyMega,disconnectMega,browseMega,streamMega,startTeraBox,pollTeraBox,refreshTeraBox,browseTeraBox,streamTeraBox} from './cloud-extra.js';
 
-const VIDEO=/\.(mp4|m4v|mkv|mov|avi|webm|ts|m2ts|wmv|flv|mpg|mpeg|ogv|3gp|3gpp)$/i;
+const VIDEO=/\.(mp4|m4v|mkv|mov|avi|webm|ts|m2ts|wmv|flv|mpg|mpeg|ogv|3gp|3gpp|mp3|m4a|aac|flac|wav|ogg|opus|wma|ac3|eac3|dts|mka|aiff|aif|alac|mp2)$/i;
 const msBase='https://login.microsoftonline.com/consumers/oauth2/v2.0/';
 const providers=['google','onedrive','dropbox'];
 const random=()=>randomBytes(18).toString('base64url');
 const message=e=>e && e.message ? e.message : String(e);
 const bad=(status,error)=>Object.assign(new Error(error),{status});
-function video(name,mime){return /^video\//i.test(mime||'')||VIDEO.test(name||'');}
+function video(name,mime){return /^(video|audio)\//i.test(mime||'')||VIDEO.test(name||'');}
 function kindItem(id,name,isFolder,mime,size){
   return {id:String(id),name:String(name),folder:!!isFolder,video:!isFolder&&video(name,mime),size:Number(size)||0};
 }

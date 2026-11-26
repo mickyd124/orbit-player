@@ -35,7 +35,7 @@ function showAccounts(){
 function showFiles(){
  var filter=$('cloud-search').value.trim().toLowerCase(),list=$('cloud-files');list.textContent='';
  var items=files.filter(function(f){return !filter||f.name.toLowerCase().includes(filter)||f.accountName.toLowerCase().includes(filter);});
- if(!items.length){var e=document.createElement('div');e.className='empty';e.textContent=loading?'Loading cloud folders…':'No matching videos or folders here.';list.appendChild(e);}
+ if(!items.length){var e=document.createElement('div');e.className='empty';e.textContent=loading?'Loading cloud folders…':'No matching media or folders here.';list.appendChild(e);}
  items.sort(function(a,b){return Number(b.folder)-Number(a.folder)||a.name.localeCompare(b.name);});
  items.forEach(function(item){
   var row=document.createElement('div');row.className='cloud-file';
@@ -50,7 +50,7 @@ function showFiles(){
    }));
   }else{
    row.appendChild(button('▶ Play','primary cloud-small',function(){play(item,false);}));
-   if(!item.direct)row.appendChild(button('Convert','cloud-small',function(){play(item,true);}));
+   if(!item.direct)row.appendChild(button('Smart convert','cloud-small',function(){play(item,true);}));
   }
   list.appendChild(row);
  });
@@ -93,7 +93,7 @@ function openFolder(){
  })).then(function(results){return {items:results.flatMap(function(r){return r.items;}),errors:results.filter(function(r){return r.error;}).map(function(r){return r.error;})};});
  job.then(function(data){
   files=data.items;nextPage=data.next||null;loading=false;showFiles();
-  status(data.errors&&data.errors.length?data.errors.join(' · '):files.length+' videos and folders shown'+(!current?' across your connected accounts':''),!!(data.errors&&data.errors.length));
+  status(data.errors&&data.errors.length?data.errors.join(' · '):files.length+' media files and folders shown'+(!current?' across your connected accounts':''),!!(data.errors&&data.errors.length));
  }).catch(function(e){loading=false;showFiles();status(e.message,true);});
 }
 function refresh(){

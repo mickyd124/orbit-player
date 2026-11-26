@@ -2,14 +2,15 @@ import express from 'express';
 import createCloud from './cloud.js';
 import {randomBytes} from 'node:crypto';
 import {networkInterfaces} from 'node:os';
-import {spawn,spawnSync} from 'node:child_process';
+import {spawn} from 'node:child_process';
+import {detectCapabilities,probeMedia,choosePlan,buildArgs} from './media-engine.js';
 import {mkdir,mkdtemp,rm,readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {validateSource} from './policy.js';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const app=express(),token=process.env.ORBIT_TOKEN||randomBytes(24).toString('hex'),port=Number(process.env.PORT||3000),sessions=new Map();
-const ffmpeg=spawnSync('ffmpeg',['-version'],{stdio:'ignore'}).status===0;
+const media=detectCapabilities(),ffmpeg=media.ffmpeg;
 const torrentEnabled=process.env.ORBIT_DISABLE_TORRENT!=='1';
 let torrentClient;
 app.use((req,res,next)=>{res.set('Access-Control-Allow-Origin','*');res.set('Access-Control-Allow-Headers','Authorization, Content-Type');res.set('Access-Control-Allow-Methods','GET,POST,DELETE,OPTIONS');res.set('Cache-Control','no-store');if(req.method==='OPTIONS')return res.sendStatus(204);next();});
@@ -29,8 +30,9 @@ function addresses(){
  try{for(const group of Object.values(networkInterfaces()))for(const a of group||[])if((a.family==='IPv4'||a.family===4)&&!a.internal)out.push('http://'+a.address+':'+port);}catch{}
  return [...new Set(out)];
 }
+app.get('/api/companion/codecs',(req,res)=>res.json(media));
 app.get('/api/health',(req,res)=>res.json({ok:true,ffmpeg,clients:selected(),mode,torrentEnabled}));
-app.get('/api/companion/status',(req,res)=>res.json({ok:true,mode,clients:selected(),ffmpeg,torrentEnabled,port,addresses:addresses(),uptime:Math.floor((Date.now()-started)/1000),platform:process.platform,node:process.version,sessions:sessions.size,activity}));
+app.get('/api/companion/status',(req,res)=>res.json({ok:true,mode,clients:selected(),ffmpeg,torrentEnabled,port,addresses:addresses(),uptime:Math.floor((Date.now()-started)/1000),platform:process.platform,node:process.version,sessions:sessions.size,activity,media:{ffprobe:media.ffprobe,ready:media.ready,version:media.version,encoders:media.encoders.length,decoders:media.decoders.length}}));
 app.post('/api/companion/mode',(req,res)=>{
  // Management writes are same-origin only, in addition to the existing bearer check.
  if(req.get('origin')!=='http://'+req.get('host')&&req.get('origin')!=='https://'+req.get('host'))return res.status(403).json({error:'Open the companion dashboard directly to change mode.'});
@@ -42,14 +44,14 @@ app.get('/companion',(req,res)=>{res.set('Content-Security-Policy',"default-src 
 for(const [url,file] of [['/companion.js','dashboard.js'],['/companion.css','dashboard.css']])app.get(url,(req,res)=>res.sendFile(path.join(root,'server','dashboard',file)));
 for(const client of ['orbit','multcloud'])app.get('/'+client,(req,res)=>selected().includes(client)?res.redirect('/?client='+client):res.status(403).type('text').send('Client not selected. Enable it in /companion.'));
 app.get('/',(req,res,next)=>{const client=req.query.client;if(typeof client==='string'&&['orbit','multcloud'].includes(client)&&!selected().includes(client))return res.status(403).type('text').send('Client disabled. Enable it in /companion.');next();});
-async function destroy(id){const session=sessions.get(id);if(!session)return;sessions.delete(id);session.process?.kill('SIGKILL');if(session.torrent)await new Promise(resolve=>session.torrent.destroy({destroyStore:true},resolve));session.server?.close();await rm(session.dir,{recursive:true,force:true});}
+async function destroy(id){const session=sessions.get(id);if(!session)return;sessions.delete(id);session.probe?.kill('SIGKILL');session.process?.kill('SIGKILL');if(session.torrent)await new Promise(resolve=>session.torrent.destroy({destroyStore:true},resolve));session.server?.close();await rm(session.dir,{recursive:true,force:true});}
 async function torrentInput(source,session){
  if(!torrentClient){const {default:WebTorrent}=await import('webtorrent');torrentClient=new WebTorrent();torrentClient.on('error',e=>console.error('Torrent client:',e.message));}
  return new Promise((resolve,reject)=>{
  const timer=setTimeout(()=>reject(new Error('Torrent metadata timed out. Check peers and network access.')),90000);
  const torrent=torrentClient.add(source,{path:path.join(session.dir,'torrent')});session.torrent=torrent;
  torrent.once('error',e=>{clearTimeout(timer);reject(e);});
- torrent.once('ready',()=>{clearTimeout(timer);const files=torrent.files.filter(f=>/\.(mp4|mkv|avi|mov|webm|m4v|ts|m2ts|mpeg|mpg|wmv|flv|ogv)$/i.test(f.name)).sort((a,b)=>b.length-a.length);const file=files[0];if(!file)return reject(new Error('No supported video file found in torrent'));torrent.files.forEach(f=>f.deselect());file.select();const server=torrent.createServer();session.server=server;server.listen(0,'127.0.0.1',()=>resolve('http://127.0.0.1:'+server.address().port+'/'+torrent.files.indexOf(file)));});
+ torrent.once('ready',()=>{clearTimeout(timer);const files=torrent.files.filter(f=>/\.(mp4|mkv|avi|mov|webm|m4v|ts|m2ts|mpeg|mpg|wmv|flv|ogv|mp3|m4a|aac|flac|wav|ogg|opus|wma|ac3|eac3|dts|mka|aiff|aif|alac)$/i.test(f.name)).sort((a,b)=>b.length-a.length);const file=files[0];if(!file)return reject(new Error('No supported media file found in torrent'));torrent.files.forEach(f=>f.deselect());file.select();const server=torrent.createServer();session.server=server;server.listen(0,'127.0.0.1',()=>resolve('http://127.0.0.1:'+server.address().port+'/'+torrent.files.indexOf(file)));});
  });
 }
 app.post('/api/sessions',async(req,res)=>{
@@ -58,9 +60,22 @@ app.post('/api/sessions',async(req,res)=>{
  id=randomBytes(24).toString('hex');await mkdir(path.join(root,'.runtime'),{recursive:true});const dir=await mkdtemp(path.join(root,'.runtime','play-'));const session={dir,lastAccess:Date.now(),error:null};sessions.set(id,session);
  const input=kind==='torrent'?await torrentInput(source,session):source;
  if(!sessions.has(id))throw new Error('Session expired');
- const args=['-nostdin','-hide_banner','-loglevel','error','-rw_timeout','30000000','-i',input,'-map','0:v:0','-map','0:a:0?','-c:v','libx264','-threads','2','-filter_threads','1','-preset','veryfast','-crf','23','-vf','scale=w=min(1920\\,iw):h=min(1080\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2','-pix_fmt','yuv420p','-c:a','aac','-ac','2','-b:a','160k','-f','hls','-hls_time','4','-hls_list_size','0','-hls_playlist_type','event','-hls_segment_filename',path.join(dir,'segment%06d.ts'),path.join(dir,'index.m3u8')];
- session.process=spawn('ffmpeg',args);let errors='';session.process.stderr.on('data',data=>{errors=(errors+data.toString()).slice(-2000);});session.process.on('error',e=>{session.error=e.message;});session.process.on('exit',code=>{if(code&&code!==0)session.error='Conversion failed: '+errors.slice(-2000);});
- const deadline=Date.now()+60000;while(Date.now()<deadline){if(session.error)throw new Error(session.error);try{const playlist=await readFile(path.join(dir,'index.m3u8'),'utf8');if(playlist.includes('.ts'))return res.json({id,source,playback:'/media/'+id+'/index.m3u8'});}catch{}await new Promise(resolve=>setTimeout(resolve,300));}
+ const info=media.ffprobe?await probeMedia(input,session):null;
+ if(!sessions.has(id))throw new Error('Session expired');
+ const plan=choosePlan(info,req.body.mode==='safe');
+ if(plan.video==='encode'&&!media.encoders.includes('libx264'))throw Error('FFmpeg is missing libx264. Install a full FFmpeg build.');
+ if(plan.audio==='encode'&&!media.encoders.includes('aac'))throw Error('FFmpeg is missing AAC encoding. Install a full FFmpeg build.');
+ session.plan=plan;
+ session.process=spawn('ffmpeg',buildArgs(input,dir,plan),{windowsHide:true,stdio:['ignore','ignore','pipe']});
+ // Drain stderr without returning credential-bearing cloud URLs to clients.
+ session.process.stderr.on('data',()=>{});
+ session.process.on('error',()=>{session.error='FFmpeg could not start.';});
+ session.process.on('exit',code=>{if(code!==0)session.error='Conversion failed. Check source availability and installed decoders; try safe compatibility mode.';});
+ const deadline=Date.now()+60000;while(Date.now()<deadline){
+ if(!sessions.has(id))throw Error('Session expired');
+ if(session.error)throw Error(session.error);
+ try{const playlist=await readFile(path.join(dir,'index.m3u8'),'utf8');if(playlist.includes('.ts'))return res.json({id,playback:'/media/'+id+'/index.m3u8',plan:{video:plan.video,audio:plan.audio,videoCodec:plan.videoCodec,audioCodec:plan.audioCodec}});}catch{}
+ await new Promise(resolve=>setTimeout(resolve,300));}
  throw new Error('Media took too long to prepare. Check source availability.');
  }catch(e){if(id)await destroy(id);res.status(400).json({error:e.message});}
 });

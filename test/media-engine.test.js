@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {choosePlan,buildArgs} from '../server/media-engine.js';
+const v={index:0,codec_type:'video',codec_name:'h264',profile:'High',pix_fmt:'yuv420p',width:1920,height:1080,level:41,avg_frame_rate:'25/1',field_order:'progressive'};
+const a={index:1,codec_type:'audio',codec_name:'aac',profile:'LC',channels:2,sample_rate:'48000'};
+test('copies conservative compatible streams',()=>{const p=choosePlan({streams:[v,a]});assert.equal(p.video,'copy');assert.equal(p.audio,'copy');assert.ok(buildArgs('http://example.test/movie','tmp',p).includes('copy'));});
+test('converts incompatible audio without reencoding compatible video',()=>{const p=choosePlan({streams:[v,{...a,codec_name:'dts'}]});assert.equal(p.video,'copy');assert.equal(p.audio,'encode');assert.ok(buildArgs('http://example.test/movie','tmp',p).includes('aac_low'));});
+test('converts HEVC, AV1, high frame rates and HDR in conservative profile',()=>{for(const source of [{...v,codec_name:'hevc'},{...v,codec_name:'av1'},{...v,avg_frame_rate:'60/1'},{...v,color_transfer:'smpte2084'}])assert.equal(choosePlan({streams:[source,a]}).video,'encode');});
+test('audio-only and cover art do not require a video encoder',()=>{const p=choosePlan({streams:[{...v,disposition:{attached_pic:1}},{...a,codec_name:'flac'}]});assert.equal(p.video,'none');assert.equal(p.audio,'encode');assert.ok(!buildArgs('https://example.test/song','tmp',p).includes('libx264'));});
+test('safe mode and missing probe preserve conservative defaults',()=>{assert.equal(choosePlan({streams:[v,a]},true).video,'encode');assert.equal(choosePlan(null).audio,'encode');assert.throws(()=>choosePlan({streams:[]}));});

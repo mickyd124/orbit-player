@@ -90,7 +90,7 @@ export async function browseTeraBox(a,folder,next,refresh){
   const entries=data.info||data.list||[];
   if(!Array.isArray(entries))throw httpError(502,'Unexpected TeraBox folder listing.');
   return {items:entries.map(f=>({id:String(f.isdir?f.path:f.fs_id),name:String(f.server_filename||f.filename||''),
-    folder:!!Number(f.isdir),video:!Number(f.isdir)&&(Number(f.category)===1||/\.(mp4|m4v|mkv|mov|avi|webm|ts|m2ts|wmv|flv|mpg|mpeg|ogv|3gp)$/i.test(f.server_filename||'')),
+    folder:!!Number(f.isdir),video:!Number(f.isdir)&&([1,2].includes(Number(f.category))||/\.(mp4|m4v|mkv|mov|avi|webm|ts|m2ts|wmv|flv|mpg|mpeg|ogv|3gp|mp3|m4a|aac|flac|wav|ogg|opus|wma|ac3|eac3|dts|mka|aiff|aif|alac|mp2)$/i.test(f.server_filename||'')),
     size:Number(f.size)||0})),
     next:data.has_more||entries.length===100?String(page+1):null};
 }
@@ -137,7 +137,7 @@ export async function browseMega(a,folder){
   const dir=folder?storage.files[folder]:storage.root;
   if(!dir||!dir.directory)throw httpError(404,'MEGA folder no longer exists.');
   return {items:(dir.children||[]).map(f=>({id:f.nodeId,name:f.name||'Untitled',
-    folder:!!f.directory,video:!f.directory&&/\.(mp4|m4v|mkv|mov|avi|webm|ts|m2ts|wmv|flv|mpg|mpeg|ogv|3gp)$/i.test(f.name||''),
+    folder:!!f.directory,video:!f.directory&&/\.(mp4|m4v|mkv|mov|avi|webm|ts|m2ts|wmv|flv|mpg|mpeg|ogv|3gp|mp3|m4a|aac|flac|wav|ogg|opus|wma|ac3|eac3|dts|mka|aiff|aif|alac|mp2)$/i.test(f.name||''),
     size:Number(f.size)||0})),next:null};
 }
 export async function streamMega(a,id,range,res){
@@ -157,7 +157,7 @@ export async function streamMega(a,id,range,res){
   const extension=String(file.name||'').split('.').pop().toLowerCase();
   const mime={mp4:'video/mp4',m4v:'video/mp4',mov:'video/quicktime',webm:'video/webm',
     mkv:'video/x-matroska',avi:'video/x-msvideo',ts:'video/mp2t',m2ts:'video/mp2t',
-    mpeg:'video/mpeg',mpg:'video/mpeg',ogv:'video/ogg'}[extension]||'application/octet-stream';
+    mpeg:'video/mpeg',mpg:'video/mpeg',ogv:'video/ogg',mp3:'audio/mpeg',m4a:'audio/mp4',aac:'audio/aac',flac:'audio/flac',wav:'audio/wav',ogg:'audio/ogg',opus:'audio/ogg'}[extension]||'application/octet-stream';
   res.status(range?206:200).set({'Content-Type':mime,
     'Accept-Ranges':'bytes','Content-Length':String(end-start+1),'Cache-Control':'no-store'});
   if(range)res.set('Content-Range',`bytes ${start}-${end}/${size}`);

@@ -153,3 +153,7 @@ See [multi-platform companion installers](scripts/COMPANION.md). Android uses Te
 ## Browser companion dashboard
 
 Open `http://HOST-IP:3000/companion` on your home network after starting the companion. Unlock with the existing access token. Select Orbit Player, MultCloud TV or both, view live diagnostics and connected cloud accounts, and open the cloud library to manage them. See [companion installation guide](scripts/COMPANION.md#browser-control-centre).
+
+## Smart media compatibility (1.4.0)
+
+The companion now probes video and audio codecs with FFprobe, remuxes conservative H.264/AAC streams, converts unsupported tracks and supports audio-only cloud playback. The webOS app retries failed HTTP media playback through the companion in safe H.264/AAC mode. See [media engine and codec inventory](scripts/COMPANION.md#smart-webos-media-compatibility-140). No separate TV codec installation is required.
