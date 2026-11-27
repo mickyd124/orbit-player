@@ -46,3 +46,16 @@ The existing installers install FFmpeg and FFprobe when the platform package is 
 ## Separate platform installers and Linux desktop manager
 
 Android Termux: run scripts/termux-install.sh (Node, cloud-only on Android). iPhone: run scripts/iphone-install.sh in iSH (Python); Termux is not available on iOS. Windows: existing scripts/companion-windows.ps1. Linux desktop: run scripts/linux-desktop-install.sh as your normal desktop user. It installs a Tk desktop manager and existing Node companion. Start server in the GUI, add MEGA or WebDAV credentials locally, or open Cloud authorization for OAuth/QR providers; the browser may request the existing companion token. Paste a magnet or choose a local .torrent metadata file (up to 1 MiB) and start streaming. The largest supported media file is selected automatically. Once ready, on either TV client open Cloud library and select Desktop streams — refresh, then select the stream. Alternatively copy the LAN HLS link. Stop the stream from the GUI. Only use media you have permission to share; BitTorrent may upload to peers. Native torrent dependencies and FFmpeg are required; if installation falls back to cloud-only mode torrents are unavailable. No automatic service startup. Do not expose the companion to the internet.
+
+## iPhone / iPad a-Shell (experimental)
+Use full a-Shell from the App Store, not Termux. In the terminal:
+
+    curl -fL https://raw.githubusercontent.com/mickyd124/orbit-player/main/scripts/ashell-install.py -o ashell-install.py
+    python3 ashell-install.py
+    ffmpeg -version
+
+If FFmpeg is missing, run `pkg install ffmpeg` and check again. Then run:
+
+    python3 ~/Documents/orbit-ashell/start.py
+
+Keep a-Shell foreground and grant local network permission if prompted. Connect the TV using the iPhone Wi-Fi IP and printed token. The installer preserves its own token and WebDAV accounts on update. Direct WebDAV and compatible browser media are supported by the code; direct MEGA is in TV memory only. rclone, companion MEGA login, OAuth, torrents and server-side FFmpeg conversion are disabled in this mode because iOS does not provide normal subprocess execution; the FFmpeg command is for separate local use, not integrated live conversion. Actual iOS socket and TV compatibility are unverified. Use iSH or desktop if unavailable.

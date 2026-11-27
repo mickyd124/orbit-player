@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Standard-library iSH server, optional FFmpeg and rclone."""
 import base64, configparser, hashlib, hmac, json, mimetypes, os, pathlib, re
-import secrets, shutil, signal, socket, subprocess, tempfile, threading, time
+import secrets, shutil, signal, socket, tempfile, threading, time
+try: import subprocess
+except ImportError: subprocess=None
+ASHELL=os.environ.get('ORBIT_ASHELL')=='1'
 import urllib.parse as u
 import urllib.request as req
 import xml.etree.ElementTree as ET
@@ -30,12 +33,13 @@ class NoRedirect(req.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs): return None
 OPENER=req.build_opener(NoRedirect())
 def command(args,timeout=8):
+    if ASHELL or subprocess is None: raise Problem(503,'External process helpers unavailable in a-Shell mode.')
     try:
         return subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=timeout,check=True).stdout
     except (OSError,subprocess.SubprocessError):
         raise Problem(502,"Helper command failed or timed out. Check packages and cloud configuration.")
 def available(binary):
-    if not shutil.which(binary): return False
+    if ASHELL or subprocess is None or not shutil.which(binary): return False
     try:
         command([binary,"version" if binary=="rclone" else "-version"]); return True
     except Problem: return False
@@ -284,7 +288,7 @@ class Handler(BaseHTTPRequestHandler):
         if verb=="OPTIONS": return self.output(204,b"","text/plain")
         if path.startswith("/api/") and not hmac.compare_digest(self.headers.get("Authorization","").encode(),("Bearer "+TOKEN).encode()): raise Problem(401,"Invalid companion token.")
         if path=="/api/health" and verb=="GET": return self.output(200,dict(ok=True,ffmpeg=MEDIA["ffmpeg"],clients=clients(),mode=mode,torrentEnabled=False,backend="python"))
-        if path=="/api/companion/status" and verb=="GET": return self.output(200,dict(ok=True,mode=mode,clients=clients(),ffmpeg=MEDIA["ffmpeg"],torrentEnabled=False,port=PORT,addresses=addresses(),uptime=int(time.time()-START),platform="iSH / Python",runtime="Python "+__import__("platform").python_version(),node=None,sessions=len(SESSIONS),activity=ACTIVITY,media=dict(ffprobe=MEDIA["ffprobe"],ready=MEDIA["ready"],version=MEDIA["version"],encoders=len(MEDIA["encoders"]),decoders=len(MEDIA["decoders"])),rclone=RCLONE))
+        if path=="/api/companion/status" and verb=="GET": return self.output(200,dict(ok=True,mode=mode,clients=clients(),ffmpeg=MEDIA["ffmpeg"],torrentEnabled=False,port=PORT,addresses=addresses(),uptime=int(time.time()-START),platform="a-Shell / Python" if ASHELL else "iSH / Python",runtime="Python "+__import__("platform").python_version(),node=None,sessions=len(SESSIONS),activity=ACTIVITY,media=dict(ffprobe=MEDIA["ffprobe"],ready=MEDIA["ready"],version=MEDIA["version"],encoders=len(MEDIA["encoders"]),decoders=len(MEDIA["decoders"])),rclone=RCLONE))
         if path=="/api/companion/codecs" and verb=="GET": return self.output(200,MEDIA)
         if path=="/api/companion/mode" and verb=="POST":
             if self.headers.get("Origin")!="http://"+self.headers.get("Host",""): raise Problem(403,"Open dashboard directly.")
@@ -381,14 +385,15 @@ def main():
     server=ThreadingHTTPServer(("0.0.0.0",PORT),Handler)
     threading.Thread(target=cleanup_loop,daemon=True).start()
     def stop(*args): raise KeyboardInterrupt()
-    signal.signal(signal.SIGTERM,stop)
+    if not ASHELL: signal.signal(signal.SIGTERM,stop)
     print("Python companion READY",flush=True)
     print("Dashboard: http://127.0.0.1:%d/companion"%PORT,flush=True)
     for addr in addresses(): print("TV URL: "+addr,flush=True)
     print("TV URL: http://YOUR-IPHONE-WIFI-IP:%d"%PORT,flush=True)
     print("Access token: "+TOKEN,flush=True)
+    if ASHELL: print("a-Shell: FFmpeg CLI may be installed but server subprocess conversion is disabled.",flush=True)
     print("FFmpeg: %s | rclone: %s"%("ready" if MEDIA["ffmpeg"] else "unavailable","ready" if RCLONE else "unavailable"),flush=True)
-    print("Keep iSH running. Ctrl+C stops companion. Private LAN only.",flush=True)
+    print("Keep the terminal app foreground. Ctrl+C stops companion. Private LAN only.",flush=True)
     try: server.serve_forever()
     except KeyboardInterrupt: pass
     finally:
