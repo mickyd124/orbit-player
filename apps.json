@@ -22,9 +22,9 @@
         "sourceUrl": "https://github.com/mickyd124/orbit-player",
         "iconUri": "https://raw.githubusercontent.com/mickyd124/orbit-player/main/app/icon.png",
         "ipkUrl": "https://github.com/mickyd124/orbit-player/releases/download/v1.5.0/com.orbit.mediaplayer_1.5.0_all.ipk",
-        "ipkSize": 535186,
+        "ipkSize": 535242,
         "ipkHash": {
-          "sha256": "ccd9fc73ff6985601f4608c2103ea3fdea73ce8bcd489b1ce877247b7fa98fa4"
+          "sha256": "7360bd0d8d3974d224fd5e94278acb16a5ee26def99c85ea158a061417d66b6f"
         }
       }
     }
