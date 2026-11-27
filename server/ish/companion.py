@@ -285,6 +285,8 @@ class Handler(BaseHTTPRequestHandler):
     def route(self):
         global mode
         p=u.urlsplit(self.path); path=p.path; q=u.parse_qs(p.query); verb=self.command
+        if path=="/favicon.ico" and verb in ("GET","HEAD"):
+            return self.output(204,b"","image/x-icon")
         if verb=="OPTIONS": return self.output(204,b"","text/plain")
         if path.startswith("/api/") and not hmac.compare_digest(self.headers.get("Authorization","").encode(),("Bearer "+TOKEN).encode()): raise Problem(401,"Invalid companion token.")
         if path=="/api/health" and verb=="GET": return self.output(200,dict(ok=True,ffmpeg=MEDIA["ffmpeg"],clients=clients(),mode=mode,torrentEnabled=False,backend="python"))
@@ -371,14 +373,30 @@ class Handler(BaseHTTPRequestHandler):
             path="/index.html"
         if not re.fullmatch(r"/(?:[A-Za-z0-9_-]+\.(?:html|js|css|png)|vendor/[A-Za-z0-9_.-]+\.js)",path): raise Problem(404,"File not found.")
         return self.file(ROOT/"app"/path[1:])
+    def handle(self):
+        try:
+            super().handle()
+        except (BrokenPipeError, ConnectionResetError,
+                ConnectionAbortedError, socket.timeout):
+            self.close_connection = True
+
     def handle_request(self):
-        self.sent=False
-        try: self.route()
-        except Problem as e:
-            if not self.sent: self.output(e.code,dict(error=str(e)))
-        except (BrokenPipeError,ConnectionResetError,socket.timeout): pass
-        except Exception:
-            if not self.sent: self.output(502,dict(error="Request failed. Check configuration and connection."))
+        self.sent = False
+        try:
+            try:
+                self.route()
+            except Problem as e:
+                if not self.sent:
+                    self.output(e.code, dict(error=str(e)))
+            except (BrokenPipeError, ConnectionResetError,
+                    ConnectionAbortedError, socket.timeout):
+                raise
+            except Exception:
+                if not self.sent:
+                    self.output(502, dict(error="Request failed. Check configuration and connection."))
+        except (BrokenPipeError, ConnectionResetError,
+                ConnectionAbortedError, socket.timeout):
+            self.close_connection = True
     do_GET=do_HEAD=do_POST=do_DELETE=do_OPTIONS=handle_request
 def main():
     if not 1024<=PORT<=65535 or len(TOKEN)<32: raise SystemExit("Invalid port or token.")
