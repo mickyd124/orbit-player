@@ -14,8 +14,9 @@ const media=detectCapabilities(),ffmpeg=media.ffmpeg;
 const torrentEnabled=process.env.ORBIT_DISABLE_TORRENT!=='1';
 let torrentClient;
 app.use((req,res,next)=>{res.set('Access-Control-Allow-Origin','*');res.set('Access-Control-Allow-Headers','Authorization, Content-Type');res.set('Access-Control-Allow-Methods','GET,POST,DELETE,OPTIONS');res.set('Cache-Control','no-store');if(req.method==='OPTIONS')return res.sendStatus(204);next();});
-app.use(express.json({limit:'16kb'}));
 app.use('/api',(req,res,next)=>{if(req.headers.authorization!=='Bearer '+token)return res.status(401).json({error:'Invalid companion token'});next();});
+app.use('/api/sessions',express.json({limit:'2mb'}));
+app.use(express.json({limit:'16kb'}));
 const cloud=createCloud(token,port,root);
 app.use('/api/cloud',cloud.api);
 app.use('/cloud',cloud.pub);
@@ -56,8 +57,14 @@ async function torrentInput(source,session){
 }
 app.post('/api/sessions',async(req,res)=>{
  let id;
- try{const source=req.body.url,kind=validateSource(source);if(kind==='torrent'&&!torrentEnabled)return res.status(503).json({error:'BitTorrent disabled on this companion build; direct cloud playback is available.'});if(!ffmpeg)return res.status(503).json({error:'Install FFmpeg on the companion computer first.'});if(sessions.size>=3)return res.status(429).json({error:'Companion is busy. Close another playback session.'});
- id=randomBytes(24).toString('hex');await mkdir(path.join(root,'.runtime'),{recursive:true});const dir=await mkdtemp(path.join(root,'.runtime','play-'));const session={dir,lastAccess:Date.now(),error:null};sessions.set(id,session);
+ try{let source=req.body?.url,kind;
+ if(req.body?.torrentBase64!==undefined){
+  const encoded=req.body.torrentBase64;
+  if(typeof encoded!=='string'||encoded.length>1400000||!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))throw Error('Invalid torrent file');
+  source=Buffer.from(encoded,'base64');if(source.length>1048576||source[0]!==100||source[source.length-1]!==101)throw Error('Invalid torrent metadata');
+  kind='torrent';
+ }else kind=validateSource(source);if(kind==='torrent'&&!torrentEnabled)return res.status(503).json({error:'BitTorrent disabled on this companion build; direct cloud playback is available.'});if(!ffmpeg)return res.status(503).json({error:'Install FFmpeg on the companion computer first.'});if(sessions.size>=3)return res.status(429).json({error:'Companion is busy. Close another playback session.'});
+ id=randomBytes(24).toString('hex');await mkdir(path.join(root,'.runtime'),{recursive:true});const dir=await mkdtemp(path.join(root,'.runtime','play-'));const session={dir,lastAccess:Date.now(),error:null,shared:req.body.shared===true,title:String(req.body.title||'Companion stream').slice(0,150),ready:false};sessions.set(id,session);
  const input=kind==='torrent'?await torrentInput(source,session):source;
  if(!sessions.has(id))throw new Error('Session expired');
  const info=media.ffprobe?await probeMedia(input,session):null;
@@ -74,11 +81,12 @@ app.post('/api/sessions',async(req,res)=>{
  const deadline=Date.now()+60000;while(Date.now()<deadline){
  if(!sessions.has(id))throw Error('Session expired');
  if(session.error)throw Error(session.error);
- try{const playlist=await readFile(path.join(dir,'index.m3u8'),'utf8');if(playlist.includes('.ts'))return res.json({id,playback:'/media/'+id+'/index.m3u8',plan:{video:plan.video,audio:plan.audio,videoCodec:plan.videoCodec,audioCodec:plan.audioCodec}});}catch{}
+ try{const playlist=await readFile(path.join(dir,'index.m3u8'),'utf8');if(playlist.includes('.ts')){session.ready=true;return res.json({id,playback:'/media/'+id+'/index.m3u8',plan:{video:plan.video,audio:plan.audio,videoCodec:plan.videoCodec,audioCodec:plan.audioCodec}});}}catch{}
  await new Promise(resolve=>setTimeout(resolve,300));}
  throw new Error('Media took too long to prepare. Check source availability.');
  }catch(e){if(id)await destroy(id);res.status(400).json({error:e.message});}
 });
+app.get('/api/sessions',(req,res)=>res.json({sessions:[...sessions].filter(([,s])=>s.shared&&s.ready&&!s.error).map(([id,s])=>({id,title:s.title,playback:'/media/'+id+'/index.m3u8'}))}));
 app.delete('/api/sessions/:id',async(req,res)=>{await destroy(req.params.id);res.json({ok:true});});
 app.get('/media/:id/:file',(req,res)=>{const session=sessions.get(req.params.id);if(!session||!/^index\.m3u8$|^segment\d+\.ts$/.test(req.params.file))return res.sendStatus(404);session.lastAccess=Date.now();res.sendFile(path.join(session.dir,req.params.file),{dotfiles:'allow'});});
 app.use(express.static(path.join(root,'app')));
