@@ -74,7 +74,7 @@ def remotes():
     cfg=configparser.ConfigParser(interpolation=None)
     try: cfg.read(CONFIG)
     except configparser.Error: return []
-    return [dict(id="rclone-"+n,type=TYPES[cfg[n].get("type","")],name=n,remote=n) for n in cfg.sections() if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}",n) and cfg[n].get("type") in TYPES]
+    return [dict(id="rclone-"+n,type=TYPES[cfg[n].get("type","")],name=cfg[n].get("user",n) if cfg[n].get("type")=="mega" else n,remote=n) for n in cfg.sections() if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}",n) and cfg[n].get("type") in TYPES]
 def accounts():
     with LOCK: return dav_accounts()+remotes()
 def account(key):
@@ -295,7 +295,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.output(200,dict(ok=True,mode=mode,clients=clients()))
         if path=="/api/cloud/accounts" and verb=="GET":
             listed=accounts()
-            return self.output(200,dict(accounts=[public(a) for a in listed],enabled={k:(k=="webdav" or any(a["type"]==k for a in listed)) for k in ("google","onedrive","dropbox","mega","terabox","webdav")},backend="python",rclone=RCLONE))
+            return self.output(200,dict(accounts=[public(a) for a in listed],enabled={k:(k=="webdav" or (k=="mega" and RCLONE) or any(a["type"]==k for a in listed)) for k in ("google","onedrive","dropbox","mega","terabox","webdav")},backend="python",rclone=RCLONE))
         if path=="/api/cloud/accounts/webdav" and verb=="POST":
             d=self.body(); user=d.get("username"); pw=d.get("password")
             if not isinstance(user,str) or not isinstance(pw,str) or not user or not pw: raise Problem(400,"Enter WebDAV username and password.")
@@ -304,7 +304,32 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 old=dav_accounts(); old.append(a); write_dav(old)
             return self.output(201,dict(account=public(a)))
-        if path=="/api/cloud/accounts/mega" or path.startswith("/api/cloud/link/"): raise Problem(501,"Configure this account through rclone in iSH. TeraBox is not supported.")
+        if path=="/api/cloud/accounts/mega" and verb=="POST":
+            if not RCLONE: raise Problem(503,"Install a working rclone package first.")
+            d=self.body(); email=d.get("email"); password=d.get("password")
+            if not isinstance(email,str) or not isinstance(password,str) or not email.strip() or not password or len(email)>254 or len(password)>1024 or any(c in email+password for c in "\r\n\x00"):
+                raise Problem(400,"Enter a valid MEGA email and password.")
+            email=email.strip()
+            with LOCK:
+                cfg=configparser.ConfigParser(interpolation=None)
+                if CONFIG.exists(): cfg.read(CONFIG)
+                name=next((n for n in cfg.sections() if cfg[n].get("type")=="mega" and cfg[n].get("user","").casefold()==email.casefold()),None)
+                if name is None: name="mega-"+secrets.token_hex(8)
+                # Obscure is rclone's reversible credential format, not encryption.
+                obscured=command(["rclone","obscure",password]).decode().strip()
+                if not cfg.has_section(name): cfg.add_section(name)
+                cfg[name].update({"type":"mega","user":email,"pass":obscured})
+                fd,tmp=tempfile.mkstemp(prefix="rclone-",dir=BASE)
+                try:
+                    with os.fdopen(fd,"w") as f: cfg.write(f)
+                    args=rargs("lsjson",name+":","--max-depth","1")
+                    args[2]=tmp
+                    command(args,60)
+                    os.replace(tmp,CONFIG)
+                finally:
+                    if os.path.exists(tmp): os.unlink(tmp)
+            return self.output(201,dict(account=dict(id="rclone-"+name,type="mega",name=email)))
+        if path.startswith("/api/cloud/link/"): raise Problem(501,"Configure this account through rclone in iSH. TeraBox is not supported.")
         if path.startswith("/api/cloud/accounts/") and verb=="DELETE":
             a=account(u.unquote(path.rsplit("/",1)[-1]))
             if "remote" in a: raise Problem(400,"Remove rclone accounts through rclone config.")

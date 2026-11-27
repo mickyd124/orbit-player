@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var $=function(id){return document.getElementById(id);};
-var accounts=[],current=null,stack=[],files=[],nextPage=null,loading=false,pollTimer=null,linkSession=null,available={};
+var savedLists={},accounts=[],current=null,stack=[],files=[],nextPage=null,loading=false,pollTimer=null,linkSession=null,available={};
 function settings(){try{return JSON.parse(localStorage.getItem('orbit-settings'))||{};}catch(e){return {};}}
 function api(route,options){
  var connection=settings();
@@ -107,11 +107,10 @@ function refresh(){
  }
  status('Connecting to companion…');
  return api('/accounts').then(function(data){
-  accounts=local.concat(data.accounts||[]);available=data.enabled||{};showAccounts();openFolder();
+  savedLists[conn.url]=data.accounts||[]; accounts=local.concat(savedLists[conn.url]);available=data.enabled||{};showAccounts();openFolder();
  }).catch(function(e){
-  accounts=local;showAccounts();
-  if(accounts.length){openFolder();status('Companion unavailable; showing direct MEGA accounts.');}
-  else status(e.message,true);
+  accounts=local.concat(savedLists[conn.url]||[]);showAccounts();files=[];showFiles();
+  status('Companion unavailable: '+e.message+'. Saved accounts have not been removed. Select Refresh to reconnect.',true);
  });
 }
 $('cloud-refresh').onclick=refresh;
@@ -146,7 +145,7 @@ function closeDialog(){
  if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
  var d=$('cloud-dialog');if(d.close)d.close();else d.removeAttribute('open');
  linkSession=null;
- $('mega-password').value='';
+ $('mega-password').value='';$('dav-password').value='';
  $('cloud-qr').removeAttribute('src');$('cloud-qr').hidden=true;
  $('cloud-connect-form').hidden=false;$('cloud-link-step').hidden=true;
  $('cloud-link-code-wrap').hidden=true;
@@ -154,7 +153,7 @@ function closeDialog(){
 $('cloud-cancel').onclick=closeDialog;
 $('cloud-finish').onclick=closeDialog;
 $('cloud-connect').onclick=function(){
- $('cloud-provider').value=(settings().url&&settings().token)?'webdav':'mega-direct';changeProvider();$('cloud-dialog-status').textContent='';
+ $('cloud-provider').value=(settings().url&&settings().token)?'mega':'mega-direct';changeProvider();$('cloud-dialog-status').textContent='';
  $('cloud-connect-form').hidden=false;$('cloud-link-step').hidden=true;
  var d=$('cloud-dialog');if(d.showModal)d.showModal();else d.setAttribute('open','');
  $('cloud-provider').focus();
